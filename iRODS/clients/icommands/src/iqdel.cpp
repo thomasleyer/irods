@@ -29,7 +29,8 @@ rmDelayedRule( char *ruleId ) {
 
     ruleExecDelInp_t ruleExecDelInp;
 
-    strncpy( ruleExecDelInp.ruleExecId, ruleId, NAME_LEN );
+    snprintf( ruleExecDelInp.ruleExecId, sizeof( ruleExecDelInp.ruleExecId ),
+              "%s", ruleId );
     status = rcRuleExecDel( Conn, &ruleExecDelInp );
 
     if ( status == CAT_SUCCESS_BUT_WITH_NO_INFO ) {
@@ -43,6 +44,9 @@ rmDelayedRule( char *ruleId ) {
 
 int
 main( int argc, char **argv ) {
+
+    signal( SIGPIPE, SIG_IGN );
+
     int status;
     rErrMsg_t errMsg;
     rodsArguments_t myRodsArgs;

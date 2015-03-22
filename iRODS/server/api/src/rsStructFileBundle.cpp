@@ -262,12 +262,16 @@ int _rsStructFileBundle( rsComm_t*                 rsComm,
                     phyBunDir,
                     collEnt->collName + collLen + 1,
                     collEnt->dataName );
-                mkDirForFilePath(
+                status = mkDirForFilePath(
                     rsComm,
                     strlen( phyBunDir ),
                     tmpPath,
                     collEnt->resc_hier,
                     getDefDirMode() );
+                if ( status < 0 ) {
+                    rodsLog( LOG_ERROR, "mkDirForFilePath failed in _rsStructFileBundle with status %d", status );
+                    return status;
+                }
             }
 
             // =-=-=-=-=-=-=-
@@ -281,6 +285,7 @@ int _rsStructFileBundle( rsComm_t*                 rsComm,
                              collEnt->phyPath, tmpPath, errno );
                     rmLinkedFilesInUnixDir( phyBunDir );
                     rmdir( phyBunDir );
+                    free( collEnt );
                     return UNIX_FILE_LINK_ERR - errno;
                 }
                 else {
@@ -299,7 +304,12 @@ int _rsStructFileBundle( rsComm_t*                 rsComm,
                 continue;
             }
             snprintf( tmpPath, MAX_NAME_LEN, "%s/%s", phyBunDir, collEnt->collName + collLen );
-            mkFileDirR( rsComm, strlen( phyBunDir ), tmpPath, resc_hier.c_str(), getDefDirMode() );
+            status = mkFileDirR( rsComm, strlen( phyBunDir ), tmpPath, resc_hier.c_str(), getDefDirMode() );
+            if ( status < 0 ) {
+                rodsLog( LOG_ERROR, "mkFileDirR failed in _rsStructFileBundle with status %d", status );
+                free( collEnt );
+                return status;
+            }
         } // else
 
         if ( collEnt != NULL ) {

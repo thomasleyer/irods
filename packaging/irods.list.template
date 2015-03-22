@@ -5,7 +5,7 @@
 %copyright 2005-2015, Regents of the University of California, the University of North Carolina at Chapel Hill, and the Data Intensive Cyberinfrastructure Foundation, All Rights Reserved.
 %vendor Renaissance Computing Institute <info@irods.org>
 %license LICENSE
-%readme README
+%readme README.md
 %description The integrated Rule-Oriented Data System
 %version TEMPLATE_IRODSVERSION TEMPLATE_IRODSVERSIONINT
 
@@ -69,7 +69,7 @@ $RESOURCE=true
 
 
 %if CENTOS6
-%requires openssl098e
+%requires openssl
 %endif
 
 
@@ -77,7 +77,7 @@ $RESOURCE=true
 %if DEB
 %requires libc6
 %requires sudo
-%requires libssl0.9.8
+%requires libssl1.0.0
 %requires libfuse2
 %endif
 
@@ -86,7 +86,7 @@ $RESOURCE=true
 %endif
 
 %if SUSE
-%requires libopenssl0_9_8
+%requires libopenssl1_0_0
 %requires libfuse2
 %endif
 
@@ -290,19 +290,8 @@ d 755 root root ${IRODS_HOME_DIR}/tests/pydevtest -
 f 644 root root ${IRODS_HOME_DIR}/tests/pydevtest ./tests/pydevtest/*.py
 f 644 root root ${IRODS_HOME_DIR}/tests/pydevtest ./tests/pydevtest/*.r
 f 755 root root ${IRODS_HOME_DIR}/tests/pydevtest/rulebase_fastswap_test_2276.sh ./tests/pydevtest/rulebase_fastswap_test_2276.sh
-#f 644 root root ${IRODS_HOME_DIR}/tests/pydevtest/topology_tests.tar ./tests/pydevtest/topology_tests.tar
 f 644 root root ${IRODS_HOME_DIR}/tests/pydevtest/README ./tests/pydevtest/README
-f 755 root root ${IRODS_HOME_DIR}/tests/devtest.sh ./tests/devtest.sh
 f 755 root root ${IRODS_HOME_DIR}/tests/zombiereaper.sh ./tests/zombiereaper.sh
-
-d 755 root root ${IRODS_HOME_DIR}/tests/pydevtest/workflow_testfiles/ -
-f 755 root root ${IRODS_HOME_DIR}/tests/pydevtest/workflow_testfiles/mycp ./tests/pydevtest/workflow_testfiles/mycp
-f 644 root root ${IRODS_HOME_DIR}/tests/pydevtest/workflow_testfiles/myData ./tests/pydevtest/workflow_testfiles/myData
-f 644 root root ${IRODS_HOME_DIR}/tests/pydevtest/workflow_testfiles/myWf.mpf ./tests/pydevtest/workflow_testfiles/myWf.mpf
-f 644 root root ${IRODS_HOME_DIR}/tests/pydevtest/workflow_testfiles/myWf.mss ./tests/pydevtest/workflow_testfiles/myWf.mss
-f 755 root root ${IRODS_HOME_DIR}/tests/pydevtest/workflow_testfiles/myWorkFlow ./tests/pydevtest/workflow_testfiles/myWorkFlow
-f 644 root root ${IRODS_HOME_DIR}/tests/pydevtest/workflow_testfiles/PHOTO.JPG ./tests/pydevtest/workflow_testfiles/PHOTO.JPG
-f 644 root root ${IRODS_HOME_DIR}/tests/pydevtest/workflow_testfiles/tt ./tests/pydevtest/workflow_testfiles/tt
 
 %if COVERAGE
 f 644 root root ${IRODS_HOME_DIR}/gcovfiles.tgz ./gcovfiles.tgz
@@ -381,6 +370,7 @@ f 755 root root ${IRODS_HOME}/scripts/notify/notify.pl ./iRODS/scripts/notify/no
 f 644 root root ${IRODS_HOME}/scripts/notify/cront ./iRODS/scripts/notify/cront
 d 755 root root ${IRODS_HOME}/scripts/python -
 f 644 root root ${IRODS_HOME}/scripts/python/system_identification.py ./iRODS/scripts/python/system_identification.py
+f 644 root root ${IRODS_HOME}/scripts/python/pid_age.py ./iRODS/scripts/python/pid_age.py
 d 755 root root ${IRODS_HOME}/scripts/perl -
 f 644 root root ${IRODS_HOME}/scripts/perl/configure.pl ./iRODS/scripts/perl/configure.pl
 f 644 root root ${IRODS_HOME}/scripts/perl/utils_file.pl ./iRODS/scripts/perl/utils_file.pl
@@ -446,8 +436,6 @@ d 755 root root ${IRODS_HOME}/server/test/obj -
 f 644 root root ${IRODS_HOME}/server/test/README.txt ./iRODS/server/test/README.txt
 d 755 root root ${IRODS_HOME}/server/icat -
 d 755 root root ${IRODS_HOME}/server/icat/src -
-d 755 root root ${IRODS_HOME}/config -
-f 644 root root ${IRODS_HOME}/config/irodsEnv.boot ./iRODS/config/irodsEnv.boot
 f 755 root root ${IRODS_HOME}/irodsctl ./iRODS/irodsctl
 
 
@@ -536,8 +524,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjPutW
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiCommit.r ./iRODS/clients/icommands/test/rules3.0/rulemsiCommit.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjRename.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDataObjRename.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiMergeDataCopies.r ./iRODS/clients/icommands/test/rules3.0/rulemsiMergeDataCopies.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowfail.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowfail.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowdelay.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowdelay.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleintegrityDataType.r ./iRODS/clients/icommands/test/rules3.0/ruleintegrityDataType.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiRollback.r ./iRODS/clients/icommands/test/rules3.0/rulemsiRollback.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiPropertiesFromString.r ./iRODS/clients/icommands/test/rules3.0/rulemsiPropertiesFromString.r
@@ -572,7 +558,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiSysChksumDa
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiImageConvert-no-properties.r ./iRODS/clients/icommands/test/rules3.0/rulemsiImageConvert-no-properties.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiPhyBundleColl.r ./iRODS/clients/icommands/test/rules3.0/rulemsiPhyBundleColl.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiString2StrArray.r ./iRODS/clients/icommands/test/rules3.0/rulemsiString2StrArray.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowbreak.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowbreak.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAdmChangeCoreIRB.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAdmChangeCoreIRB.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiFlushMonStat.r ./iRODS/clients/icommands/test/rules3.0/rulemsiFlushMonStat.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiSetDataType.r ./iRODS/clients/icommands/test/rules3.0/rulemsiSetDataType.r
@@ -580,7 +565,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiSetDataObjP
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiPropertiesClear.r ./iRODS/clients/icommands/test/rules3.0/rulemsiPropertiesClear.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiCollRepl.r ./iRODS/clients/icommands/test/rules3.0/rulemsiCollRepl.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiRenameCollection.r ./iRODS/clients/icommands/test/rules3.0/rulemsiRenameCollection.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowif.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowif.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjChksum.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDataObjChksum.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiSetReplComment.r ./iRODS/clients/icommands/test/rules3.0/rulemsiSetReplComment.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiStripAVUs.r ./iRODS/clients/icommands/test/rules3.0/rulemsiStripAVUs.r
@@ -607,7 +591,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleintegrityACL.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDeleteUsersFromDataObj.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDeleteUsersFromDataObj.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAdmClearAppRuleStruct.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAdmClearAppRuleStruct.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiGetFormattedSystemTime.r ./iRODS/clients/icommands/test/rules3.0/rulemsiGetFormattedSystemTime.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflownop.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflownop.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiPropertiesGet.r ./iRODS/clients/icommands/test/rules3.0/rulemsiPropertiesGet.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiOprDisallowed.r ./iRODS/clients/icommands/test/rules3.0/rulemsiOprDisallowed.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiGetObjType.r ./iRODS/clients/icommands/test/rules3.0/rulemsiGetObjType.r
@@ -630,7 +613,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiSetRescSort
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAdmRetrieveRulesFromDBIntoStruct.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAdmRetrieveRulesFromDBIntoStruct.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiFreeBuffer.r ./iRODS/clients/icommands/test/rules3.0/rulemsiFreeBuffer.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleintegrityExpiry.r ./iRODS/clients/icommands/test/rules3.0/ruleintegrityExpiry.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowremote.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowremote.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjGet.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDataObjGet.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiPhyPathReg.r ./iRODS/clients/icommands/test/rules3.0/rulemsiPhyPathReg.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiGetObjectPath.r ./iRODS/clients/icommands/test/rules3.0/rulemsiGetObjectPath.r
@@ -644,7 +626,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiPrintKeyVal
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiStrArray2String.r ./iRODS/clients/icommands/test/rules3.0/rulemsiStrArray2String.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiobjput_irods.r ./iRODS/clients/icommands/test/rules3.0/rulemsiobjput_irods.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAclPolicy.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAclPolicy.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowforeach.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowforeach.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulewritePosInt.r ./iRODS/clients/icommands/test/rules3.0/rulewritePosInt.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAddKeyValToMspStr.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAddKeyValToMspStr.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiExecStrCondQuery.r ./iRODS/clients/icommands/test/rules3.0/rulemsiExecStrCondQuery.r
@@ -653,7 +634,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiStrchop.r .
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiStrCat.r ./iRODS/clients/icommands/test/rules3.0/rulemsiStrCat.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiString2KeyValPair.r ./iRODS/clients/icommands/test/rules3.0/rulemsiString2KeyValPair.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiExtractNaraMetadata.r ./iRODS/clients/icommands/test/rules3.0/rulemsiExtractNaraMetadata.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowcut.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowcut.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiobjget_srb.r ./iRODS/clients/icommands/test/rules3.0/rulemsiobjget_srb.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulereadXMsg.r ./iRODS/clients/icommands/test/rules3.0/rulereadXMsg.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAssociateKeyValuePairsToObj.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAssociateKeyValuePairsToObj.r
@@ -677,7 +657,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiGetStderrIn
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiCreateXmsgInp.r ./iRODS/clients/icommands/test/rules3.0/rulemsiCreateXmsgInp.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAddUserToGroup.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAddUserToGroup.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiMakeGenQuery.r ./iRODS/clients/icommands/test/rules3.0/rulemsiMakeGenQuery.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowfor.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowfor.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAdmAppendToTopOfCoreRE.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAdmAppendToTopOfCoreRE.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiPropertiesRemove.r ./iRODS/clients/icommands/test/rules3.0/rulemsiPropertiesRemove.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiSetRescQuotaPolicy.r ./iRODS/clients/icommands/test/rules3.0/rulemsiSetRescQuotaPolicy.r
@@ -708,9 +687,7 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiGetDataObjA
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjLseek.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDataObjLseek.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjTrim.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDataObjTrim.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiTarFileCreate.r ./iRODS/clients/icommands/test/rules3.0/rulemsiTarFileCreate.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowassign.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowassign.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiSortDataObj.r ./iRODS/clients/icommands/test/rules3.0/rulemsiSortDataObj.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowapplyAllRules.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowapplyAllRules.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAdmReadRulesFromFileIntoStruct.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAdmReadRulesFromFileIntoStruct.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjUnlink.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDataObjUnlink.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiSetNumThreads.r ./iRODS/clients/icommands/test/rules3.0/rulemsiSetNumThreads.r
@@ -718,7 +695,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiCheckHostAc
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiRcvXmsg.r ./iRODS/clients/icommands/test/rules3.0/rulemsiRcvXmsg.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiIsColl.r ./iRODS/clients/icommands/test/rules3.0/rulemsiIsColl.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjWrite.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDataObjWrite.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowsucceed.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowsucceed.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiGetDataObjAVUs.r ./iRODS/clients/icommands/test/rules3.0/rulemsiGetDataObjAVUs.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiSetACL.r ./iRODS/clients/icommands/test/rules3.0/rulemsiSetACL.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulewriteString.r ./iRODS/clients/icommands/test/rules3.0/rulewriteString.r
@@ -757,7 +733,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjCopy
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiStageDataObj.r ./iRODS/clients/icommands/test/rules3.0/rulemsiStageDataObj.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAdmWriteRulesFromStructIntoFile.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAdmWriteRulesFromStructIntoFile.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDoSomething.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDoSomething.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowwhile.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowwhile.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjRead.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDataObjRead.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiLoadUserModsFromDataObj.r ./iRODS/clients/icommands/test/rules3.0/rulemsiLoadUserModsFromDataObj.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiStrlen.r ./iRODS/clients/icommands/test/rules3.0/rulemsiStrlen.r
@@ -783,7 +758,6 @@ f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulewriteXMsg.r ./
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiAddSelectFieldToGenQuery.r ./iRODS/clients/icommands/test/rules3.0/rulemsiAddSelectFieldToGenQuery.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiNoTrashCan.r ./iRODS/clients/icommands/test/rules3.0/rulemsiNoTrashCan.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiCheckAccess.r ./iRODS/clients/icommands/test/rules3.0/rulemsiCheckAccess.r
-f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/ruleworkflowerrorcode.r ./iRODS/clients/icommands/test/rules3.0/ruleworkflowerrorcode.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiQuota.r ./iRODS/clients/icommands/test/rules3.0/rulemsiQuota.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiDataObjRepl.r ./iRODS/clients/icommands/test/rules3.0/rulemsiDataObjRepl.r
 f 644 root root ${IRODS_HOME}/clients/icommands/test/rules3.0/rulemsiobjget_irods.r ./iRODS/clients/icommands/test/rules3.0/rulemsiobjget_irods.r

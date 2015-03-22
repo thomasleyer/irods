@@ -11,6 +11,11 @@
 #include "rsApiHandler.hpp"
 #include "collection.hpp"
 
+#include <string>
+#include <vector>
+#include <boost/regex.hpp>
+#include <boost/algorithm/string/regex.hpp>
+
 /**
  * \fn msiDataObjCreate (msParam_t *inpParam1, msParam_t *msKeyValStr,
  *        msParam_t *outParam, ruleExecInfo_t *rei)
@@ -468,19 +473,16 @@ msiDataObjLseek( msParam_t *inpParam1, msParam_t *inpParam2,
     }
 
     rei->status = rsDataObjLseek( rsComm, myDataObjLseekInp, &dataObjLseekOut );
-    if ( rei->status >= 0 ) {
-        if ( outParam != NULL ) {
-            fillMsParam( outParam, NULL, DataObjLseekOut_MS_T,
-                         dataObjLseekOut, NULL );
-        }
-        else {
-            free( dataObjLseekOut );
-        }
+    if ( rei->status >= 0 && outParam != NULL ) {
+        fillMsParam( outParam, NULL, DataObjLseekOut_MS_T, dataObjLseekOut, NULL );
     }
     else {
-        rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
-                            "msiDataObjLseek: rsDataObjLseek failed, status = %d",
-                            rei->status );
+        free( dataObjLseekOut );
+        if ( rei->status >= 0 ) {
+            rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
+                                "msiDataObjLseek: rsDataObjLseek failed, status = %d",
+                                rei->status );
+        }
     }
 
     return rei->status;
@@ -1199,7 +1201,7 @@ int
 msiDataObjPut( msParam_t *inpParam1, msParam_t *inpParam2,
                msParam_t *msKeyValStr, msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t *dataObjInp, *myDataObjInp;
+    dataObjInp_t *myDataObjInp = NULL;
     msParamArray_t *myMsParamArray;
     char *outBadKeyWd;
     int validKwFlags;
@@ -1214,16 +1216,16 @@ msiDataObjPut( msParam_t *inpParam1, msParam_t *inpParam2,
 
     rsComm = rei->rsComm;
 
-    dataObjInp = ( dataObjInp_t* )malloc( sizeof( dataObjInp_t ) );
-    memset( dataObjInp, 0, sizeof( dataObjInp_t ) );
-
     /* parse inpParam1 */
+    dataObjInp_t *dataObjInp = ( dataObjInp_t* )malloc( sizeof( *dataObjInp ) );
     rei->status = parseMspForDataObjInp( inpParam1, dataObjInp,
                                          &myDataObjInp, 1 );
 
     if ( rei->status < 0 ) {
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjPut: input inpParam1 error. status = %d", rei->status );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1233,6 +1235,8 @@ msiDataObjPut( msParam_t *inpParam1, msParam_t *inpParam2,
     if ( rei->status < 0 ) {
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjPut: input inpParam2 error. status = %d", rei->status );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1254,6 +1258,8 @@ msiDataObjPut( msParam_t *inpParam1, msParam_t *inpParam2,
                                 "msiDataObjPut: input msKeyValStr error. status = %d",
                                 rei->status );
         }
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1266,6 +1272,10 @@ msiDataObjPut( msParam_t *inpParam1, msParam_t *inpParam2,
     if ( rei->status < 0 ) {
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjPut: addMsParam error. status = %d", rei->status );
+        clearMsParamArray( myMsParamArray, 0 );
+        free( myMsParamArray );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1345,9 +1355,9 @@ int
 msiDataObjGet( msParam_t *inpParam1, msParam_t *msKeyValStr,
                msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t *dataObjInp, *myDataObjInp;
+    dataObjInp_t *myDataObjInp = NULL;
     msParamArray_t *myMsParamArray;
-    char *outBadKeyWd;
+    char *outBadKeyWd = NULL;
     int validKwFlags;
 
     RE_TEST_MACRO( "    Calling msiDataObjGet" )
@@ -1360,8 +1370,8 @@ msiDataObjGet( msParam_t *inpParam1, msParam_t *msKeyValStr,
 
     rsComm = rei->rsComm;
 
-    dataObjInp = ( dataObjInp_t* )malloc( sizeof( dataObjInp_t ) );
     /* parse inpParam1 */
+    dataObjInp_t *dataObjInp = ( dataObjInp_t* )malloc( sizeof( *dataObjInp ) );
     rei->status = parseMspForDataObjInp( inpParam1, dataObjInp,
                                          &myDataObjInp, 1 );
 
@@ -1369,6 +1379,8 @@ msiDataObjGet( msParam_t *inpParam1, msParam_t *msKeyValStr,
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjGet: input inpParam1 error. status = %d",
                             rei->status );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1389,6 +1401,8 @@ msiDataObjGet( msParam_t *inpParam1, msParam_t *msKeyValStr,
                                 "msiDataObjGet: input msKeyValStr error. status = %d",
                                 rei->status );
         }
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1402,6 +1416,10 @@ msiDataObjGet( msParam_t *inpParam1, msParam_t *msKeyValStr,
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjGet: addMsParam error. status = %d",
                             rei->status );
+        clearMsParamArray( myMsParamArray, 0 );
+        free( myMsParamArray );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1469,7 +1487,7 @@ int
 msiDataObjGetWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
                           msParam_t *srcrescParam, msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t *dataObjInp, *myDataObjInp;
+    dataObjInp_t *myDataObjInp = NULL;
     msParamArray_t *myMsParamArray;
 
     RE_TEST_MACRO( "    Calling msiDataObjGetWithOptions" )
@@ -1482,8 +1500,8 @@ msiDataObjGetWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
 
     rsComm = rei->rsComm;
 
-    dataObjInp = ( dataObjInp_t* )malloc( sizeof( dataObjInp_t ) );
     /* parse inpParam1 */
+    dataObjInp_t *dataObjInp = ( dataObjInp_t* )malloc( sizeof( *dataObjInp ) );
     rei->status = parseMspForDataObjInp( inpParam1, dataObjInp,
                                          &myDataObjInp, 1 );
 
@@ -1501,6 +1519,8 @@ msiDataObjGetWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjGetWithOptions: input inpParam2 error. status = %d",
                             rei->status );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1511,6 +1531,8 @@ msiDataObjGetWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjGetWithOptions: input srcrescParam error. status = %d",
                             rei->status );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1524,6 +1546,10 @@ msiDataObjGetWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjGetWithOptions: addMsParam error. status = %d",
                             rei->status );
+        clearMsParamArray( myMsParamArray, 0 );
+        free( myMsParamArray );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -1591,7 +1617,7 @@ int
 msiDataObjChksum( msParam_t *inpParam1, msParam_t *msKeyValStr,
                   msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t dataObjInp, *myDataObjInp;
+    dataObjInp_t dataObjInp, *myDataObjInp = NULL;
     char *chksum = NULL;
     char *outBadKeyWd;
     int validKwFlags;
@@ -1698,7 +1724,7 @@ msiDataObjPhymv( msParam_t *inpParam1, msParam_t *inpParam2,
                  msParam_t *inpParam3, msParam_t *inpParam4, msParam_t *inpParam5,
                  msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t dataObjInp, *myDataObjInp;
+    dataObjInp_t dataObjInp, *myDataObjInp = NULL;
     transferStat_t *transStat = NULL;
 
     RE_TEST_MACRO( "    Calling msiDataObjPhymv" )
@@ -1814,7 +1840,7 @@ msiDataObjRename( msParam_t *inpParam1, msParam_t *inpParam2,
                   msParam_t *inpParam3, msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
     dataObjCopyInp_t dataObjRenameInp, *myDataObjRenameInp;
-    dataObjInp_t *myDataObjInp;
+    dataObjInp_t *myDataObjInp = NULL;
 
     RE_TEST_MACRO( "    Calling msiDataObjRename" )
 
@@ -1916,7 +1942,7 @@ msiDataObjTrim( msParam_t *inpParam1, msParam_t *inpParam2,
                 msParam_t *inpParam3, msParam_t *inpParam4, msParam_t *inpParam5,
                 msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t dataObjInp, *myDataObjInp;
+    dataObjInp_t dataObjInp, *myDataObjInp = NULL;
 
     RE_TEST_MACRO( "    Calling msiDataObjTrim" )
 
@@ -2431,7 +2457,7 @@ msiPhyPathReg( msParam_t *inpParam1, msParam_t *inpParam2,
                msParam_t *inpParam3, msParam_t *inpParam4, msParam_t *outParam,
                ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t dataObjInp, *myDataObjInp;
+    dataObjInp_t dataObjInp, *myDataObjInp = NULL;
 
     RE_TEST_MACRO( "    Calling msiPhyPathReg" )
 
@@ -2529,7 +2555,7 @@ msiPhyPathReg( msParam_t *inpParam1, msParam_t *inpParam2,
 int
 msiObjStat( msParam_t *inpParam1, msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t dataObjInp, *myDataObjInp;
+    dataObjInp_t dataObjInp, *myDataObjInp = NULL;
 
     RE_TEST_MACRO( "    Calling msiObjStat" )
 
@@ -2622,7 +2648,7 @@ msiDataObjRsync( msParam_t *inpParam1, msParam_t *inpParam2,
                  msParam_t *inpParam3, msParam_t *inpParam4, msParam_t *outParam,
                  ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t dataObjInp, *myDataObjInp;
+    dataObjInp_t dataObjInp, *myDataObjInp = NULL;
     msParamArray_t *outParamArray = NULL;
     char *rsyncMode;
     char *targCollection, *tmpPtr;
@@ -2908,6 +2934,7 @@ _rsCollRsync( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
                 rodsLogError( LOG_ERROR, status,
                               "_rsCollRsync:: splitPathByKey for %s error, status = %d",
                               collEnt->collName, status );
+                freeCollEnt( collEnt );
                 return status;
             }
             snprintf( destChildPath, MAX_NAME_LEN, "%s/%s",
@@ -3014,7 +3041,7 @@ msiExecCmd( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *inpParam3,
     }
 
     if ( ( tmpPtr = parseMspForStr( inpParam3 ) ) != NULL ) {
-        rstrcpy( myExecCmdInp->execAddr, tmpPtr, MAX_NAME_LEN );
+        rstrcpy( myExecCmdInp->execAddr, tmpPtr, LONG_NAME_LEN );
     }
 
     if ( ( tmpPtr = parseMspForStr( inpParam4 ) ) != NULL ) {
@@ -3234,7 +3261,7 @@ int
 msiDataObjPutWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
                           msParam_t *inpParam3, msParam_t *inpOverwriteParam,
                           msParam_t *inpAllCopiesParam, msParam_t *outParam, ruleExecInfo_t *rei ) {
-    dataObjInp_t *myDataObjInp;
+    dataObjInp_t *myDataObjInp = NULL;
 
     RE_TEST_MACRO( "    Calling msiDataObjPut" )
 
@@ -3246,7 +3273,7 @@ msiDataObjPutWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
 
     rsComm_t * rsComm = rei->rsComm;
 
-    dataObjInp_t *dataObjInp = ( dataObjInp_t* )malloc( sizeof( dataObjInp_t ) );
+    dataObjInp_t *dataObjInp = ( dataObjInp_t* )malloc( sizeof( *dataObjInp ) );
     /* parse inpParam1 */
     rei->status = parseMspForDataObjInp( inpParam1, dataObjInp,
                                          &myDataObjInp, 1 );
@@ -3254,6 +3281,8 @@ msiDataObjPutWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
     if ( rei->status < 0 ) {
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjPut: input inpParam1 error. status = %d", rei->status );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -3263,6 +3292,8 @@ msiDataObjPutWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
     if ( rei->status < 0 ) {
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjPut: input inpParam2 error. status = %d", rei->status );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
         return rei->status;
     }
 
@@ -3273,6 +3304,9 @@ msiDataObjPutWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
     if ( rei->status < 0 ) {
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjPut: input inpParam3 error. status = %d", rei->status );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
+
         return rei->status;
     }
 
@@ -3363,7 +3397,7 @@ int
 msiDataObjReplWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
                            msParam_t *inpParam3, msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t dataObjInp, *myDataObjInp;
+    dataObjInp_t dataObjInp, *myDataObjInp = NULL;
     transferStat_t *transStat = NULL;
 
     RE_TEST_MACRO( " Calling msiDataObjReplWithOptions" )
@@ -3473,7 +3507,7 @@ int
 msiDataObjChksumWithOptions( msParam_t *inpParam1, msParam_t *inpParam2,
                              msParam_t *inpParam3, msParam_t *outParam, ruleExecInfo_t *rei ) {
     rsComm_t *rsComm;
-    dataObjInp_t dataObjInp, *myDataObjInp;
+    dataObjInp_t dataObjInp, *myDataObjInp = NULL;
     char *chksum = NULL;
 
     RE_TEST_MACRO( " Calling msiDataObjChksumWithOptions" )
@@ -3599,8 +3633,10 @@ msiTarFileExtract( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *inpPar
     if ( rei == NULL || rei->rsComm == NULL ) {
         rodsLog( LOG_ERROR,
                  "msiTarFileExtract: input rei or rsComm is NULL" );
-        rei->status = SYS_INTERNAL_NULL_INPUT_ERR;
-        return rei->status;
+        if ( rei ) {
+            rei->status = SYS_INTERNAL_NULL_INPUT_ERR;
+        }
+        return SYS_INTERNAL_NULL_INPUT_ERR;
     }
 
     rsComm = rei->rsComm;
@@ -3619,8 +3655,8 @@ msiTarFileExtract( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *inpPar
     if ( strcmp( inpParam1->type, STR_MS_T ) == 0 ) {
         bzero( &structFileExtAndRegInp, sizeof( structFileExtAndRegInp ) );
         myStructFileExtAndRegInp = &structFileExtAndRegInp;
-        strncpy( ( char* )myStructFileExtAndRegInp->objPath, ( char* )inpParam1->inOutStruct,
-                 MAX_NAME_LEN );
+        snprintf( myStructFileExtAndRegInp->objPath, sizeof( myStructFileExtAndRegInp->objPath ),
+                  "%s", ( char* )inpParam1->inOutStruct );
     }
     else if ( strcmp( inpParam1->type, StructFileExtAndRegInp_MS_T ) == 0 ) {
         myStructFileExtAndRegInp =
@@ -3633,8 +3669,8 @@ msiTarFileExtract( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *inpPar
 
     if ( strcmp( inpParam2->type, STR_MS_T ) == 0 ) {
         if ( strcmp( ( char * ) inpParam2->inOutStruct, "null" ) != 0 ) {
-            strncpy( ( char* )myStructFileExtAndRegInp->collection,
-                     ( char* )inpParam2->inOutStruct, MAX_NAME_LEN );
+            snprintf( myStructFileExtAndRegInp->collection, sizeof( myStructFileExtAndRegInp->collection ),
+                      "%s", ( char* )inpParam2->inOutStruct );
         }
     }
     else {
@@ -3657,7 +3693,7 @@ msiTarFileExtract( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *inpPar
     if ( rei->doi != NULL ) { /* rei->doi may not exist */
         /* retrieve the input object data_type in order to rollback in case
         * of a tar extraction problem */
-        strncpy( origDataType, rei->doi->dataType, NAME_LEN );
+        snprintf( origDataType, sizeof( origDataType ), "%s", rei->doi->dataType );
         /* modify the input object data_type to "tar file" */
         memset( &regParam, 0, sizeof( regParam ) );
         addKeyVal( &regParam, DATA_TYPE_KW, "tar file" );
@@ -3738,8 +3774,10 @@ msiTarFileCreate( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *inpPara
     if ( rei == NULL || rei->rsComm == NULL ) {
         rodsLog( LOG_ERROR,
                  "msiTarFileCreate: input rei or rsComm is NULL" );
-        rei->status = SYS_INTERNAL_NULL_INPUT_ERR;
-        return rei->status;
+        if ( rei ) {
+            rei->status = SYS_INTERNAL_NULL_INPUT_ERR;
+        }
+        return SYS_INTERNAL_NULL_INPUT_ERR;
     }
 
     rsComm = rei->rsComm;
@@ -3758,8 +3796,8 @@ msiTarFileCreate( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *inpPara
     if ( strcmp( inpParam1->type, STR_MS_T ) == 0 ) {
         bzero( &structFileExtAndRegInp, sizeof( structFileExtAndRegInp ) );
         myStructFileExtAndRegInp = &structFileExtAndRegInp;
-        strncpy( ( char* )myStructFileExtAndRegInp->objPath, ( char* )inpParam1->inOutStruct,
-                 MAX_NAME_LEN );
+        snprintf( myStructFileExtAndRegInp->objPath, sizeof( myStructFileExtAndRegInp->objPath ),
+                  "%s", ( char* )inpParam1->inOutStruct );
     }
     else if ( strcmp( inpParam1->type, StructFileExtAndRegInp_MS_T ) == 0 ) {
         myStructFileExtAndRegInp =
@@ -3772,8 +3810,8 @@ msiTarFileCreate( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *inpPara
 
     if ( strcmp( inpParam2->type, STR_MS_T ) == 0 ) {
         if ( strcmp( ( char * ) inpParam2->inOutStruct, "null" ) != 0 ) {
-            strncpy( ( char* )myStructFileExtAndRegInp->collection,
-                     ( char* )inpParam2->inOutStruct, MAX_NAME_LEN );
+            snprintf( myStructFileExtAndRegInp->collection, sizeof( myStructFileExtAndRegInp->collection ),
+                      "%s", ( char* )inpParam2->inOutStruct );
         }
     }
     else {
@@ -3853,20 +3891,18 @@ msiPhyBundleColl( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *outPara
     rsComm_t *rsComm;
     structFileExtAndRegInp_t structFileExtAndRegInp,
                              *myStructFileExtAndRegInp;
-    int len1, len2, len3;
-    char *inpStr, rescName[NAME_LEN], *pstr1, *pstr2, *pstr3, *attr1, attr2[NAME_LEN];
-    char delim[1];
 
     RE_TEST_MACRO( " Calling msiPhyBundleColl" )
 
     if ( rei == NULL || rei->rsComm == NULL ) {
         rodsLog( LOG_ERROR,
                  "msiPhyBundleColl: input rei or rsComm is NULL" );
-        rei->status = SYS_INTERNAL_NULL_INPUT_ERR;
-        return rei->status;
+        if ( rei ) {
+            rei->status = SYS_INTERNAL_NULL_INPUT_ERR;
+        }
+        return SYS_INTERNAL_NULL_INPUT_ERR;
     }
 
-    delim[0] = '\0';
     rsComm = rei->rsComm;
 
     /* start building the structFileExtAndRegInp instance.
@@ -3893,8 +3929,8 @@ msiPhyBundleColl( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *outPara
     if ( strcmp( inpParam1->type, STR_MS_T ) == 0 ) {
         bzero( &structFileExtAndRegInp, sizeof( structFileExtAndRegInp ) );
         myStructFileExtAndRegInp = &structFileExtAndRegInp;
-        strncpy( ( char* )myStructFileExtAndRegInp->collection, ( char* )inpParam1->inOutStruct,
-                 MAX_NAME_LEN );
+        snprintf( myStructFileExtAndRegInp->collection, sizeof( myStructFileExtAndRegInp->collection ),
+                  "%s", ( char* )inpParam1->inOutStruct );
 
     }
     else if ( strcmp( inpParam1->type, StructFileExtAndRegInp_MS_T ) == 0 ) {
@@ -3909,55 +3945,37 @@ msiPhyBundleColl( msParam_t *inpParam1, msParam_t *inpParam2, msParam_t *outPara
     }
 
     if ( inpParam2 != NULL && strcmp( inpParam2->type, STR_MS_T ) == 0 &&
-            // =-=-=-=-=-=-=-
             strcmp( ( char * ) inpParam2->inOutStruct, "null" ) != 0 ) {
-        inpStr = ( char * ) inpParam2->inOutStruct;
         /* parse the input parameter which is: <string> or <string>++++N=<int>.... */
-        pstr1 = strstr( inpStr, "++++" );
-        if ( pstr1 != NULL ) {
-            len1 = strlen( inpStr ) - strlen( pstr1 );
-            if ( len1 > 0 ) {
-                strncpy( rescName, inpStr, len1 );
-                strcpy( rescName + len1, delim );
-                addKeyVal( &myStructFileExtAndRegInp->condInput, DEST_RESC_NAME_KW, rescName );
-            }
-
-            do {
-                pstr2 = strstr( pstr1 + 4, "=" );
-                if ( pstr2 == NULL ) {
-                    break;
-                }
-                pstr3 = strstr( pstr2, "++++" );
-                if ( pstr3 == NULL ) {
-                    len3 = 0;
-                }
-                else {
-                    len3 = strlen( pstr3 );
-                }
-
-                len2 = strlen( pstr1 + 4 ) - strlen( pstr2 );
-                if ( len2 > 0 && len3 < ( int )strlen( pstr2 ) ) {
-                    attr1 = pstr2 - 1;
-                    strncpy( attr2, pstr2 + 1, strlen( pstr2 + 1 ) - len3 );
-                    strcpy( attr2 + strlen( pstr2 + 1 ) - len3, delim );
-                    if ( strncmp( attr1, "N", 1 ) == 0 ) {
-                        addKeyVal( &myStructFileExtAndRegInp->condInput, MAX_SUB_FILE_KW, attr2 );
-                    }
-                    if ( strncmp( attr1, "S", 1 ) == 0 ) {
-                        addKeyVal( &myStructFileExtAndRegInp->condInput, RESC_NAME_KW, attr2 );
-                    }
-                    if ( strncmp( attr1, "s", 1 ) == 0 ) {
-                        addKeyVal( &myStructFileExtAndRegInp->condInput, MAX_BUNDLE_SIZE_KW, attr2 );
-                    }
-                }
-            }
-            while ( ( pstr1 = strstr( pstr2, "++++" ) ) != NULL );
+        std::vector<std::string> tokens;
+        boost::algorithm::split_regex( tokens, ( char * ) inpParam2->inOutStruct, boost::regex( "\\+\\+\\+\\+" ) );
+        if ( !tokens[0].empty() ) {
+            addKeyVal( &myStructFileExtAndRegInp->condInput, DEST_RESC_NAME_KW, tokens[0].c_str() );
         }
-        else {
-            addKeyVal( &myStructFileExtAndRegInp->condInput, DEST_RESC_NAME_KW, inpStr );
+        for ( size_t i = 1; i < tokens.size(); i++ ) {
+            if ( tokens[i].empty() ) {
+                continue;
+            }
+            std::vector<std::string> current_arg;
+            boost::algorithm::split_regex( current_arg, tokens[i], boost::regex( "=" ) );
+            if ( current_arg.size() != 2 || current_arg[0].size() != 1 ) {
+                rodsLog( LOG_ERROR, "msiPhyBundleColl called with improperly formatted arguments" );
+                continue;
+            }
+            switch ( current_arg[0].c_str()[0] ) {
+            case 'N':
+                addKeyVal( &myStructFileExtAndRegInp->condInput, MAX_SUB_FILE_KW, current_arg[1].c_str() );
+                break;
+            case 'S':
+                addKeyVal( &myStructFileExtAndRegInp->condInput, RESC_NAME_KW, current_arg[1].c_str() );
+                break;
+            case 's':
+                addKeyVal( &myStructFileExtAndRegInp->condInput, MAX_BUNDLE_SIZE_KW, current_arg[1].c_str() );
+                break;
+            default:
+                rodsLog( LOG_ERROR, "msiPhyBundleColl called with improperly formatted arguments" );
+            }
         }
-        /* end of the parsing */
-        // =-=-=-=-=-=-=-
     }
 
     /* tar file extraction */

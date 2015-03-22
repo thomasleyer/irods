@@ -389,6 +389,7 @@ int  getfilelist( rbudpReceiver_t *rbudpReceiver, char * fileList,
             if ( writen( rbudpReceiver->rbudpBase.tcpSockfd, origFName, SIZEOFFILENAME ) !=
                     SIZEOFFILENAME ) {
                 perror( "tcp send" );
+                fclose( fp );
                 return FAILED;
             }
 
@@ -397,6 +398,7 @@ int  getfilelist( rbudpReceiver_t *rbudpReceiver, char * fileList,
                            sizeof( filesize ) );
             if ( n < 0 ) {
                 fprintf( stderr, "read error.\n" );
+                fclose( fp );
                 return FAILED;
             }
 
@@ -406,6 +408,7 @@ int  getfilelist( rbudpReceiver_t *rbudpReceiver, char * fileList,
             int fd = open( destFName, O_RDWR | O_CREAT | O_TRUNC, 0666 );
             if ( fd < 0 ) {
                 fprintf( stderr, "Open failed.\n" );
+                fclose( fp );
                 return FAILED;
             }
             if ( ftruncate( fd, filesize ) != 0 ) {
@@ -416,6 +419,8 @@ int  getfilelist( rbudpReceiver_t *rbudpReceiver, char * fileList,
             buf = ( char * )mmap( NULL, filesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0 );
             if ( buf == MAP_FAILED ) {
                 fprintf( stderr, "mmap failed.\n" );
+                close( fd );
+                fclose( fp );
                 return FAILED;
             }
 
@@ -425,6 +430,7 @@ int  getfilelist( rbudpReceiver_t *rbudpReceiver, char * fileList,
             close( fd );
         }
     }
+    fclose( fp );
 
     // send all zero block to end the sender.
     bzero( str, SIZEOFFILENAME );
@@ -434,7 +440,6 @@ int  getfilelist( rbudpReceiver_t *rbudpReceiver, char * fileList,
         return FAILED;
     }
 
-    fclose( fp );
     return RB_SUCCESS;
 }
 

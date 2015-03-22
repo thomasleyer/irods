@@ -15,7 +15,6 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/convenience.hpp>
-using namespace boost::filesystem;
 
 /* parseRodsPathStr - This is similar to parseRodsPath except the
  * input and output are char string inPath and outPath
@@ -228,22 +227,28 @@ parseLocalPath( rodsPath_t *rodsPath ) {
 
 int
 getFileType( rodsPath_t *rodsPath ) {
-    path p( rodsPath->outPath );
+    boost::filesystem::path p( rodsPath->outPath );
 
-    if ( !exists( p ) ) {
-        rodsPath->objType = UNKNOWN_FILE_T;
-        rodsPath->objState = NOT_EXIST_ST;
-        return NOT_EXIST_ST;
+    try {
+        if ( !exists( p ) ) {
+            rodsPath->objType = UNKNOWN_FILE_T;
+            rodsPath->objState = NOT_EXIST_ST;
+            return NOT_EXIST_ST;
+        }
+        else if ( is_regular_file( p ) ) {
+            rodsPath->objType = LOCAL_FILE_T;
+            rodsPath->objState = EXIST_ST;
+            rodsPath->size = file_size( p );
+        }
+        else if ( is_directory( p ) ) {
+            rodsPath->objType = LOCAL_DIR_T;
+            rodsPath->objState = EXIST_ST;
+        }
+    } catch ( const boost::filesystem::filesystem_error& e ) {
+        fprintf( stderr, "%s\n", e.what() );
+        return SYS_NO_PATH_PERMISSION;
     }
-    else if ( is_regular_file( p ) ) {
-        rodsPath->objType = LOCAL_FILE_T;
-        rodsPath->objState = EXIST_ST;
-        rodsPath->size = file_size( p );
-    }
-    else if ( is_directory( p ) ) {
-        rodsPath->objType = LOCAL_DIR_T;
-        rodsPath->objState = EXIST_ST;
-    }
+
 
     return rodsPath->objType;
 }
@@ -419,12 +424,24 @@ resolveRodsTarget( rcComm_t *conn, rodsPathInp_t *rodsPathInp, int oprType ) {
 
     if ( rodsPathInp == NULL ) {
         rodsLog( LOG_ERROR,
-                 "resolveRodsTarget: NULL rodsPathInp or targPath input" );
+                 "resolveRodsTarget: NULL rodsPathInp input" );
+        return USER__NULL_INPUT_ERR;
+    }
+
+    if ( rodsPathInp->srcPath == NULL ) {
+        rodsLog( LOG_ERROR,
+                 "resolveRodsTarget: NULL rodsPathInp->srcPath input" );
+        return USER__NULL_INPUT_ERR;
+    }
+
+    if ( rodsPathInp->destPath == NULL ) {
+        rodsLog( LOG_ERROR,
+                 "resolveRodsTarget: NULL rodsPathInp->destPath input" );
         return USER__NULL_INPUT_ERR;
     }
 
     destPath = rodsPathInp->destPath;
-    if ( destPath != NULL && destPath->objState == UNKNOWN_ST ) {
+    if ( destPath->objState == UNKNOWN_ST ) {
         getRodsObjType( conn, destPath );
     }
 
@@ -541,10 +558,10 @@ resolveRodsTarget( rcComm_t *conn, rodsPathInp_t *rodsPathInp, int oprType ) {
                             if ( oprType != MOVE_OPR ) {
                                 /* rename does not need to mkColl */
                                 if ( srcPath->objType <= COLL_OBJ_T ) {
-                                    status = mkCollWithSrcCollMeta( conn, destPath->outPath, srcPath->outPath );
+                                    status = mkColl( conn, destPath->outPath );
                                 }
                                 else {
-                                    status = mkCollWithDirMeta( conn, targPath->outPath, srcPath->inPath );
+                                    status = mkColl( conn, targPath->outPath );
                                 }
                             }
                             else {
@@ -579,12 +596,7 @@ resolveRodsTarget( rcComm_t *conn, rodsPathInp_t *rodsPathInp, int oprType ) {
                 if ( destPath->objType <= COLL_OBJ_T ) {
                     if ( oprType != MOVE_OPR ) {
                         /* rename does not need to mkColl */
-                        if ( srcPath->objType <= COLL_OBJ_T ) {
-                            status = mkCollWithSrcCollMeta( conn, destPath->outPath, srcPath->outPath );
-                        }
-                        else {
-                            status = mkCollWithDirMeta( conn, destPath->outPath, srcPath->inPath );
-                        }
+                        status = mkColl( conn, destPath->outPath );
                     }
                     else {
                         status = 0;

@@ -156,6 +156,7 @@ extern "C" {
         MD5Final( ( unsigned char* )md5digest, &ctx );
         memcpy( authenticator, md5digest, 16 );
 
+        free( buffer );
         return 0;
 
 #else /* defined OS_AUTH */
@@ -224,9 +225,11 @@ extern "C" {
             rodsLog( LOG_ERROR,
                      "%s: could not allocate memory for key buffer. errno = %d",
                      fname, errno );
+            close( key_fd );
             return SYS_MALLOC_ERR;
         }
         nb = read( key_fd, keybuf, buflen );
+        close( key_fd );
         if ( nb < 0 ) {
             rodsLog( LOG_ERROR,
                      "%s: couldn't read key from %s. errno = %d",
@@ -234,7 +237,6 @@ extern "C" {
             free( keybuf );
             return FILE_READ_ERR;
         }
-        close( key_fd );
 
         *key_len = buflen;
         *key = keybuf;

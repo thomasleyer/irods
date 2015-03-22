@@ -10,6 +10,7 @@
 #include "rsApiHandler.hpp"
 #include "icatHighLevelRoutines.hpp"
 #include "miscServerFunct.hpp"
+#include "rsGlobal.hpp"   /* server global */
 #ifdef windows_platform
 #include "rsLog.hpp"
 static void NtAgentSetEnvsFromArgs( int ac, char **av );
@@ -30,9 +31,22 @@ static void NtAgentSetEnvsFromArgs( int ac, char **av );
 #include "irods_client_api_table.hpp"
 #include "irods_pack_table.hpp"
 #include "irods_threads.hpp"
+#include "procLog.h"
+#include "initServer.hpp"
 
 #include "readServerConfig.hpp"
 #include "sockCommNetworkInterface.hpp"
+
+int getAgentProcCnt() {
+    return 0;
+}
+
+int getAgentProcPIDs(
+    std::vector<int>& _pids ) {
+    _pids.clear();
+    return 0;
+}
+
 
 /* #define SERVER_DEBUG 1   */
 int
@@ -41,27 +55,15 @@ main( int, char ** ) {
     int status;
     rsComm_t rsComm;
     char *tmpStr;
-    bool run_server_as_root = false;
 
     ProcessType = AGENT_PT;
 
     // capture server properties
-    irods::error result = irods::server_properties::getInstance().capture_if_needed();
+    irods::server_properties& props = irods::server_properties::getInstance();
+    irods::error result = props.capture_if_needed();
     if ( !result.ok() ) {
         irods::log( PASSMSG( "failed to read server configuration", result ) );
     }
-
-    irods::server_properties::getInstance().get_property<bool>( RUN_SERVER_AS_ROOT_KW, run_server_as_root );
-
-
-#ifndef windows_platform
-    if ( run_server_as_root ) {
-        if ( initServiceUser() < 0 ) {
-            return 1;
-        }
-    }
-#endif
-
 
 #ifdef windows_platform
     iRODSNtAgentInit( argc, argv );
@@ -188,6 +190,8 @@ main( int, char ** ) {
 
     status = initAgent( RULE_ENGINE_TRY_CACHE, &rsComm );
 
+
+
 #ifdef SYS_TIMING
     printSysTiming( "irodsAgent", "initAgent", 0 );
 #endif
@@ -231,7 +235,7 @@ main( int, char ** ) {
         else {
             // =-=-=-=-=-=-=-
             // copy negotiation results to comm for action by network objects
-            strncpy( rsComm.negotiation_results, neg_results.c_str(), MAX_NAME_LEN );
+            snprintf( rsComm.negotiation_results, sizeof( rsComm.negotiation_results ), "%s", neg_results.c_str() );
             //rsComm.ssl_do_accept = 1;
 
         }
@@ -285,10 +289,48 @@ main( int, char ** ) {
     return status;
 }
 
+static void set_rule_engine_globals(
+    rsComm_t*                 _comm,
+    irods::server_properties& _props ) {
+
+    _props.set_property< std::string >(
+        irods::CLIENT_USER_NAME_KW,
+        _comm->clientUser.userName );
+    _props.set_property< std::string >(
+        irods::CLIENT_USER_ZONE_KW,
+        _comm->clientUser.rodsZone );
+    _props.set_property< int >(
+        irods::CLIENT_USER_PRIV_KW,
+        _comm->clientUser.authInfo.authFlag );
+
+    _props.set_property< std::string >(
+        irods::PROXY_USER_NAME_KW,
+        _comm->proxyUser.userName );
+    _props.set_property< std::string >(
+        irods::PROXY_USER_ZONE_KW,
+        _comm->proxyUser.rodsZone );
+    _props.set_property< int >(
+        irods::PROXY_USER_PRIV_KW,
+        _comm->clientUser.authInfo.authFlag );
+
+} // set_rule_engine_globals
+
 int agentMain(
     rsComm_t *rsComm ) {
-    irods::error result = SUCCESS();
+    if ( !rsComm ) {
+        return SYS_INTERNAL_NULL_INPUT_ERR;
+
+    }
+
     int status = 0;
+
+    // =-=-=-=-=-=-=-
+    // capture server properties
+    irods::server_properties& props = irods::server_properties::getInstance();
+    irods::error result = props.capture_if_needed();
+    if ( !result.ok() ) {
+        irods::log( PASSMSG( "failed to read server configuration", result ) );
+    }
 
     // =-=-=-=-=-=-=-
     // compiler backwards compatibility hack
@@ -318,6 +360,12 @@ int agentMain(
                 ret = auth_plugin->call <rsComm_t*, const char* > ( irods::AUTH_AGENT_START, auth_obj, rsComm, foo );
                 result = ASSERT_PASS( ret, "Failed during auth plugin agent start for scheme: \"%s\".", rsComm->auth_scheme );
             }
+
+            // =-=-=-=-=-=-=-
+            // add the user info to the server properties for
+            // reach by the operation wrapper for access by the
+            // dynamic policy enforcement points
+            set_rule_engine_globals( rsComm, props );
         }
 
         if ( result.ok() ) {
@@ -335,6 +383,7 @@ int agentMain(
                 }
                 rsComm->ssl_do_shutdown = 0;
             }
+
             status = readAndProcClientMsg( rsComm, READ_HEADER_TIMEOUT );
             if ( status < 0 ) {
                 if ( status == DISCONN_STATUS ) {

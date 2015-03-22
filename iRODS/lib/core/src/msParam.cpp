@@ -111,7 +111,7 @@ addMsParamToArray( msParamArray_t *msParamArray, char *label,
     else {
         msParam_t inMsParam;
         inMsParam.label = label;
-        inMsParam.type = type;
+        inMsParam.type = type ? strdup( type ) : 0;
         inMsParam.inOutStruct = inOutStruct;
         inMsParam.inpOutBuf = inpOutBuf;
         replMsParam( &inMsParam, msParamArray->msParam[len] );
@@ -162,9 +162,7 @@ replMsParam( msParam_t *msParam, msParam_t *outMsParam ) {
         outMsParam->label = strdup( label );
     }
 
-    if ( type != NULL ) {
-        outMsParam->type = strdup( type );
-    }
+    outMsParam->type = type ? strdup( type ) : NULL;
 
     status = replInOutStruct( inOutStruct, &outMsParam->inOutStruct, type );
 
@@ -228,9 +226,7 @@ fillMsParam( msParam_t *msParam, char *label,
         msParam->label = strdup( label );
     }
 
-    if ( type != NULL ) {
-        msParam->type = strdup( type );
-    }
+    msParam->type = type ? strdup( type ) : NULL;
     if ( inOutStruct != NULL && msParam->type != NULL &&
             strcmp( msParam->type, STR_MS_T ) == 0 ) {
         msParam->inOutStruct = ( void * ) strdup( ( char * )inOutStruct );
@@ -399,7 +395,7 @@ writeMsParam( char *buf, int len, msParam_t *msParam ) {
 
 
 msParam_t *
-getMsParamByLabel( msParamArray_t *msParamArray, char *label ) {
+getMsParamByLabel( msParamArray_t *msParamArray, const char *label ) {
     int i;
 
     if ( msParamArray == NULL || msParamArray->msParam == NULL || label == NULL ) {
@@ -431,7 +427,7 @@ getMsParamByType( msParamArray_t *msParamArray, const char *type ) {
 }
 
 void
-*getMspInOutStructByLabel( msParamArray_t *msParamArray, char *label ) {
+*getMspInOutStructByLabel( msParamArray_t *msParamArray, const char *label ) {
     int i;
 
     if ( msParamArray == NULL || label == NULL ) {
@@ -447,7 +443,7 @@ void
 }
 
 int
-rmMsParamByLabel( msParamArray_t *msParamArray, char *label, int freeStruct ) {
+rmMsParamByLabel( msParamArray_t *msParamArray, const char *label, int freeStruct ) {
     int i, j;
 
     if ( msParamArray == NULL || label == NULL ) {
@@ -504,7 +500,7 @@ clearMsParam( msParam_t *msParam, int freeStruct ) {
         free( msParam->inOutStruct );
     }
     if ( msParam->type != NULL ) {
-        free( const_cast< char * >( msParam->type ) );
+        free( msParam->type );
     }
 
     memset( msParam, 0, sizeof( msParam_t ) );
@@ -633,7 +629,9 @@ parseMspForDataObjInp( msParam_t * inpParam, dataObjInp_t * dataObjInpCache,
     if ( strcmp( inpParam->type, STR_MS_T ) == 0 ) {
         /* str input */
         if ( dataObjInpCache == NULL ) {
-            dataObjInpCache = ( dataObjInp_t * )malloc( sizeof( dataObjInp_t ) );
+            rodsLog( LOG_ERROR,
+                     "parseMspForDataObjInp: input dataObjInpCache is NULL" );
+            return SYS_INTERNAL_NULL_INPUT_ERR;
         }
         memset( dataObjInpCache, 0, sizeof( dataObjInp_t ) );
         *outDataObjInp = dataObjInpCache;
@@ -648,7 +646,9 @@ parseMspForDataObjInp( msParam_t * inpParam, dataObjInp_t * dataObjInpCache,
             dataObjInp_t *tmpDataObjInp;
             tmpDataObjInp = ( dataObjInp_t * )inpParam->inOutStruct;
             if ( dataObjInpCache == NULL ) {
-                dataObjInpCache = ( dataObjInp_t * )malloc( sizeof( dataObjInp_t ) );
+                rodsLog( LOG_ERROR,
+                         "parseMspForDataObjInp: input dataObjInpCache is NULL" );
+                return SYS_INTERNAL_NULL_INPUT_ERR;
             }
             *dataObjInpCache = *tmpDataObjInp;
             /* zero out the condition of the original because it has been
@@ -674,7 +674,9 @@ parseMspForDataObjInp( msParam_t * inpParam, dataObjInp_t * dataObjInpCache,
         }
 
         if ( dataObjInpCache == NULL ) {
-            dataObjInpCache = ( dataObjInp_t * )malloc( sizeof( dataObjInp_t ) );
+            rodsLog( LOG_ERROR,
+                     "parseMspForDataObjInp: input dataObjInpCache is NULL" );
+            return SYS_INTERNAL_NULL_INPUT_ERR;
         }
 
         memset( dataObjInpCache, 0, sizeof( dataObjInp_t ) );

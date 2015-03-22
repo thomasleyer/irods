@@ -4,10 +4,10 @@
 /* objDesc.c - L1 type operation. Will call low level l1desc drivers
  */
 
-#include "rodsDef.hpp"
+#include "rodsDef.h"
 #include "objDesc.hpp"
 #include "dataObjOpr.hpp"
-#include "rodsDef.hpp"
+#include "rodsDef.h"
 #include "rsGlobalExtern.hpp"
 #include "fileChksum.hpp"
 #include "modDataObjMeta.hpp"
@@ -161,7 +161,7 @@ fillL1desc( int l1descInx, dataObjInp_t *dataObjInp,
 
     char* resc_hier = getValByKey( &dataObjInp->condInput, RESC_HIER_STR_KW );
     if ( dataObjInfo->rescHier[0] == '\0' && resc_hier ) {
-        strncpy( dataObjInfo->rescHier, resc_hier, MAX_NAME_LEN );
+        snprintf( dataObjInfo->rescHier, sizeof( dataObjInfo->rescHier ), "%s", resc_hier );
     }
 
 
@@ -220,7 +220,7 @@ initDataObjInfoWithInp( dataObjInfo_t *dataObjInfo, dataObjInp_t *dataObjInp ) {
 
     rescName = getValByKey( condInput, RESC_NAME_KW );
     if ( rescName != NULL ) {
-        rstrcpy( dataObjInfo->rescName, rescName, LONG_NAME_LEN );
+        rstrcpy( dataObjInfo->rescName, rescName, NAME_LEN );
     }
 
     char* rescHier = getValByKey( &dataObjInp->condInput, RESC_HIER_STR_KW );
@@ -245,9 +245,6 @@ initDataObjInfoWithInp( dataObjInfo_t *dataObjInfo, dataObjInp_t *dataObjInp ) {
     if ( filePath != NULL ) {
         rstrcpy( dataObjInfo->filePath, filePath, MAX_NAME_LEN );
     }
-
-    /* copy over the source file metadata if provided */
-    copyFilesystemMetadata( condInput, &dataObjInfo->condInput );
 
     return 0;
 }

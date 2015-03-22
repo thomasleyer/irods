@@ -1,3 +1,4 @@
+#include "rodsConnect.h"
 #include "ruleExecSubmit.hpp"
 #include "icatHighLevelRoutines.hpp"
 
@@ -139,4 +140,3 @@ getReiFilePath( char *reiFilePath, char *userName ) {
 
     return 0;
 }
-

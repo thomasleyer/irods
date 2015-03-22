@@ -22,7 +22,7 @@
 #include "dataObjRead.hpp"
 #include "rcPortalOpr.hpp"
 #include "rcConnect.hpp"
-#include "initServer.hpp"
+#include "rodsConnect.h"
 #include "reFuncDefs.hpp"
 #include <boost/thread/thread.hpp>
 #include <boost/lexical_cast.hpp>
@@ -41,6 +41,7 @@ char *__loc1;
 #include "irods_client_server_negotiation.hpp"
 #include "irods_hierarchy_parser.hpp"
 #include "irods_threads.hpp"
+#include "irods_home_directory.hpp"
 #include "sockCommNetworkInterface.hpp"
 
 #include <iomanip>
@@ -550,10 +551,8 @@ int fillPortalTransferInp(
     myInput->key_size        = rsComm->key_size;
     myInput->salt_size       = rsComm->salt_size;
     myInput->num_hash_rounds = rsComm->num_hash_rounds;
-    strncpy(
-        myInput->encryption_algorithm,
-        rsComm->encryption_algorithm,
-        NAME_LEN );
+    snprintf( myInput->encryption_algorithm, sizeof( myInput->encryption_algorithm ),
+              "%s", rsComm->encryption_algorithm );
     return 0;
 }
 
@@ -1953,9 +1952,9 @@ getZoneServerId( char *zoneName, char *zoneSID ) {
     int zoneNameLen = 0;
     char *localZoneName = NULL;
 
-    if (!zoneSID) {
-    	rodsLog(LOG_ERROR, "getZoneServerId - input zoneSID is NULL");
-    	return;
+    if ( !zoneSID ) {
+        rodsLog( LOG_ERROR, "getZoneServerId - input zoneSID is NULL" );
+        return;
     }
 
     if ( zoneName != NULL ) {
@@ -1987,9 +1986,9 @@ getZoneServerId( char *zoneName, char *zoneSID ) {
     // retrieve remote SID from map
     std::string _zone_sid = remote_SID_key_map[zoneName].first;
 
-    if (!_zone_sid.empty()) {
-    	snprintf(zoneSID, MAX_PASSWORD_LEN, "%s", _zone_sid.c_str());
-    	return;
+    if ( !_zone_sid.empty() ) {
+        snprintf( zoneSID, MAX_PASSWORD_LEN, "%s", _zone_sid.c_str() );
+        return;
     }
 
     zoneSID[0] = '\0';
@@ -3183,8 +3182,8 @@ irods::error update_resource_object_count(
         // copy to stack, avoid const cast
         char rn[MAX_NAME_LEN];
         char oc[MAX_NAME_LEN];
-        strncpy( rn, resc_name.c_str(),           MAX_NAME_LEN );
-        strncpy( oc, new_count_str.str().c_str(), MAX_NAME_LEN );
+        snprintf( rn, sizeof( rn ), "%s", resc_name.c_str() );
+        snprintf( oc, sizeof( oc ), "%s", new_count_str.str().c_str() );
 
         // =-=-=-=-=-=-=-
         // call update via rsGeneralAdmin
@@ -3243,4 +3242,158 @@ irods::error setRECacheSaltFromEnv() {
     }
 
     return SUCCESS();
-}
+
+} // setRECacheSaltFromEnv
+
+irods::error get_script_output_single_line(
+    const std::string&              script_language,
+    const std::string&              script_name,
+    const std::vector<std::string>& args,
+    std::string&                    output ) {
+    output.clear();
+    std::stringstream exec;
+    exec << script_language
+         << " " << irods::IRODS_HOME_DIRECTORY
+         << "/iRODS/scripts/"
+         << script_language
+         << "/" << script_name;
+    for ( std::vector<std::string>::size_type i = 0; i < args.size(); ++i ) {
+        exec << " " << args[i];
+    }
+
+    FILE *fp = popen( exec.str().c_str(), "r" );
+    if ( fp == NULL ) {
+        return ERROR( SYS_FORK_ERROR, "popen() failed" );
+    }
+
+    std::vector<char> buf( 1000 );
+    const char* fgets_ret = fgets( &buf[0], buf.size(), fp );
+    if ( fgets_ret == NULL ) {
+        std::stringstream msg;
+        msg << "fgets() failed. feof["
+            << std::feof( fp )
+            << "] ferror["
+            << std::ferror( fp ) << "]";
+        const int pclose_ret = pclose( fp );
+        msg << " pclose[" << pclose_ret << "]";
+        return ERROR( FILE_READ_ERR, msg.str() );
+    }
+
+    const int pclose_ret = pclose( fp );
+    if ( pclose_ret == -1 ) {
+        return ERROR( SYS_FORK_ERROR,
+                      "pclose() failed." );
+    }
+
+    output = &buf[0];
+    // Remove trailing newline
+    const std::string::size_type size = output.size();
+    if ( size > 0 && output[size - 1] == '\n' ) {
+        output.resize( size - 1 );
+    }
+
+    return SUCCESS();
+
+}  // get_script_output_single_line
+
+irods::error add_global_re_params_to_kvp_for_dynpep(
+    keyValPair_t& _kvp ) {
+
+    irods::error ret = SUCCESS();
+
+    irods::server_properties& props = irods::server_properties::getInstance();
+    irods::error result = props.capture_if_needed();
+    if ( !result.ok() ) {
+        irods::log( PASSMSG( "failed to read server configuration", result ) );
+    }
+
+    std::string client_name;
+    props.get_property< std::string >(
+        irods::CLIENT_USER_NAME_KW,
+        client_name );
+    addKeyVal(
+        &_kvp,
+        irods::CLIENT_USER_NAME_KW.c_str(),
+        client_name.c_str() );
+
+    std::string client_zone;
+    props.get_property< std::string >(
+        irods::CLIENT_USER_ZONE_KW,
+        client_zone );
+    addKeyVal(
+        &_kvp,
+        irods::CLIENT_USER_ZONE_KW.c_str(),
+        client_zone.c_str() );
+
+    int client_priv = 0;
+    props.get_property< int >(
+        irods::CLIENT_USER_PRIV_KW,
+        client_priv );
+    std::string client_priv_str( "0" );
+    try {
+        client_priv_str = boost::lexical_cast< std::string >( client_priv );
+    }
+    catch ( boost::bad_lexical_cast& _e ) {
+        std::stringstream msg;
+        msg << "failed to cast "
+            << client_priv
+            << " to a string";
+        ret = ERROR(
+                  SYS_INVALID_INPUT_PARAM,
+                  msg.str() );
+    }
+
+    addKeyVal(
+        &_kvp,
+        irods::CLIENT_USER_PRIV_KW.c_str(),
+        client_priv_str.c_str() );
+
+
+    std::string proxy_name;
+    props.get_property< std::string >(
+        irods::PROXY_USER_NAME_KW,
+        proxy_name );
+    addKeyVal(
+        &_kvp,
+        irods::PROXY_USER_NAME_KW.c_str(),
+        proxy_name.c_str() );
+
+    std::string proxy_zone;
+    props.get_property< std::string >(
+        irods::PROXY_USER_ZONE_KW,
+        proxy_zone );
+    addKeyVal(
+        &_kvp,
+        irods::PROXY_USER_ZONE_KW.c_str(),
+        proxy_zone.c_str() );
+
+    int proxy_priv = 0;
+    props.get_property< int >(
+        irods::PROXY_USER_PRIV_KW,
+        proxy_priv );
+    std::string proxy_priv_str( "0" );
+    try {
+        proxy_priv_str = boost::lexical_cast< std::string >( proxy_priv );
+    }
+    catch ( boost::bad_lexical_cast& _e ) {
+        std::stringstream msg;
+        msg << "failed to cast "
+            << proxy_priv
+            << " to a string";
+        ret = ERROR(
+                  SYS_INVALID_INPUT_PARAM,
+                  msg.str() );
+    }
+    addKeyVal(
+        &_kvp,
+        irods::PROXY_USER_PRIV_KW.c_str(),
+        proxy_priv_str.c_str() );
+
+    return ret;
+
+} // add_global_re_params_to_kvp
+
+
+
+
+

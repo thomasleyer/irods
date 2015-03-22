@@ -118,6 +118,7 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
             else if ( gotTypeCast > 0 && gotItemName == 0 ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: No varName for %s", packInstruct );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             /* queue it */
@@ -140,12 +141,14 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
             if ( gotTypeCast > 0 || gotItemName > 0 ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: % position error for %s", packInstruct );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             myPackItem->typeInx = ( packTypeInx_t )packTypeLookup( buf );
             if ( myPackItem->typeInx < 0 ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: packTypeLookup failed for %s", buf );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             gotTypeCast = 1;
@@ -154,6 +157,7 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: ? No variable following ? for %s",
                          packInstruct );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             myPackItem->name = strdup( buf );
@@ -165,12 +169,14 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
             if ( gotTypeCast > 0 || gotItemName > 0 ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: ? position error for %s", packInstruct );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             myPackItem->typeInx = ( packTypeInx_t )packTypeLookup( buf );
             if ( myPackItem->typeInx < 0 ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: packTypeLookup failed for %s", buf );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             gotTypeCast = 1;
@@ -179,6 +185,7 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: ? No variable following ? for %s",
                          packInstruct );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             rstrcpy( myPackItem->strValue, buf, NAME_LEN );
@@ -189,6 +196,7 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
             if ( gotTypeCast == 0 || gotItemName > 0 ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: * position error for %s", packInstruct );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             continue;
@@ -198,6 +206,7 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
             if ( gotTypeCast == 0 || gotItemName > 0 ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: * position error for %s", packInstruct );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             continue;
@@ -207,6 +216,7 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
             if ( gotTypeCast == 0 || gotItemName > 0 ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: * position error for %s", packInstruct );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             continue;
@@ -217,6 +227,7 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
                 rodsLog( LOG_ERROR,
                          "parsePackInstruct: packTypeLookup failed for %s in %s",
                          buf, packInstruct );
+                free( myPackItem );
                 return SYS_PACK_INSTRUCT_FORMAT_ERR;
             }
             gotTypeCast = 1;
@@ -231,6 +242,7 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
             rodsLog( LOG_ERROR,
                      "parsePackInstruct: too many string around %s in %s",
                      buf, packInstruct );
+            free( myPackItem );
             return SYS_PACK_INSTRUCT_FORMAT_ERR;
         }
     }
@@ -238,6 +250,7 @@ parsePackInstruct( const char *packInstruct, packItem_t **packItemHead ) {
         rodsLog( LOG_ERROR,
                  "parsePackInstruct: Pack Instruction %s not properly terminated",
                  packInstruct );
+        free( myPackItem );
         return SYS_PACK_INSTRUCT_FORMAT_ERR;
     }
     return 0;
@@ -859,7 +872,7 @@ packNonpointerItem( packItem_t *myPackedItem, void **inPtr,
 
         /* save the str */
         if ( numStr == 1 && myTypeNum == PACK_PI_STR_TYPE ) {
-            strncpy( myPackedItem->strValue, ( char* )*inPtr, NAME_LEN );
+            snprintf( myPackedItem->strValue, sizeof( myPackedItem->strValue ), "%s", ( char* )*inPtr );
         }
 
         for ( i = 0; i < numStr; i++ ) {
@@ -974,8 +987,8 @@ packPointerItem( packItem_t *myPackedItem, packedOutput_t *packedOutput,
         pointerArray[0] = myPackedItem->pointer;
         if ( myTypeNum == PACK_PI_STR_TYPE ) {
             /* save the str */
-            strncpy( myPackedItem->strValue, ( char* )myPackedItem->pointer,
-                     NAME_LEN );
+            snprintf( myPackedItem->strValue, sizeof( myPackedItem->strValue ),
+                      "%s", ( char* )myPackedItem->pointer );
         }
     }
     else {
@@ -1379,6 +1392,9 @@ packXmlString( void **inPtr, packedOutput_t *packedOutput, int maxStrLen,
     }
 
     if ( maxStrLen >= 0 && myStrlen >= maxStrLen ) {
+        if ( xmlStr != myInPtr ) {
+            free( xmlStr );
+        }
         return USER_PACKSTRUCT_INPUT_ERR;
     }
     packXmlTag( myPackedItem, packedOutput, START_TAG_FL );
@@ -1400,7 +1416,7 @@ packXmlString( void **inPtr, packedOutput_t *packedOutput, int maxStrLen,
 
     packedOutput->bBuf->len += ( xmlLen );
     packXmlTag( myPackedItem, packedOutput, END_TAG_FL );
-    if ( xmlStr != NULL && xmlStr != myInPtr ) {
+    if ( xmlStr != myInPtr ) {
         free( xmlStr );
     }
     return 0;
@@ -1795,6 +1811,7 @@ packChildStruct( void **inPtr, packedOutput_t *packedOutput,
 
         status = parsePackInstruct( ( const char* )packInstruct, &packItemHead );
         if ( status < 0 ) {
+            freePackedItem( packItemHead );
             return status;
         }
         /* link it */
@@ -2637,7 +2654,7 @@ unpackXmlDoubleToOutPtr( void **inPtr, void **outPtr, int numElement,
 
     if ( *inPtr == NULL ) {
         /* a NULL pointer, fill the array with 0 */
-        memset( *inPtr, 0, sizeof( rodsLong_t ) * numElement );
+        memset( *outPtr, 0, sizeof( rodsLong_t ) * numElement );
     }
     else {
         for ( i = 0; i < numElement; i++ ) {
@@ -2703,6 +2720,7 @@ unpackChildStruct( void **inPtr, packedOutput_t *unpackedOutput,
 
         status = parsePackInstruct( static_cast<const char*>( packInstruct ), &unpackItemHead );
         if ( status < 0 ) {
+            freePackedItem( unpackItemHead );
             return status;
         }
         /* link it */

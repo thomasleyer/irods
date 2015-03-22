@@ -66,10 +66,12 @@ Cache ruleEngineConfig = {
 void removeRuleFromExtIndex( char *ruleName, int i ) {
     if ( isComponentInitialized( ruleEngineConfig.extFuncDescIndexStatus ) ) {
         FunctionDesc *fd = ( FunctionDesc * )lookupFromHashTable( ruleEngineConfig.extFuncDescIndex->current, ruleName );
-        RuleIndexList *rd = FD_RULE_INDEX_LIST( fd );
-        removeNodeFromRuleIndexList2( rd, i );
-        if ( rd->head == NULL ) {
-            deleteFromHashTable( ruleEngineConfig.extFuncDescIndex->current, ruleName );
+        if ( fd != NULL ) {
+            RuleIndexList *rd = FD_RULE_INDEX_LIST( fd );
+            removeNodeFromRuleIndexList2( rd, i );
+            if ( rd->head == NULL ) {
+                deleteFromHashTable( ruleEngineConfig.extFuncDescIndex->current, ruleName );
+            }
         }
     }
 
@@ -339,14 +341,13 @@ int loadRuleFromCacheOrFile( int processType, char *irbSet, ruleStruct_t *inRule
 
 #ifdef CACHE_ENABLE
 
-    Cache *cache;
     int update = 0;
     unsigned char *buf = NULL;
     /* try to find shared memory cache */
     if ( processType == RULE_ENGINE_TRY_CACHE && inRuleStruct == &coreRuleStrct ) {
         buf = prepareNonServerSharedMemory();
         if ( buf != NULL ) {
-            cache = restoreCache( buf );
+            Cache * cache = restoreCache( buf );
             detachSharedMemory();
 
             if ( cache == NULL ) {
@@ -377,9 +378,12 @@ int loadRuleFromCacheOrFile( int processType, char *irbSet, ruleStruct_t *inRule
                     /* ruleEngineConfig.extRuleSetStatus = LOCAL;
                     ruleEngineConfig.extFuncDescIndexStatus = LOCAL; */
                     /* createRuleIndex(inRuleStruct); */
-                    RETURN;
+                    ruleEngineConfig.ruleEngineStatus = INITIALIZED;
+                    //free( cache );
+                    return res;
                 }
             }
+            //free( cache );
         }
         else {
             rodsLog( LOG_DEBUG, "Cannot open shared memory." );
@@ -411,7 +415,8 @@ int loadRuleFromCacheOrFile( int processType, char *irbSet, ruleStruct_t *inRule
 #endif
         if ( i != 0 ) {
             res = i;
-            RETURN;
+            ruleEngineConfig.ruleEngineStatus = INITIALIZED;
+            return res;
         }
         snprintf( r2, sizeof( r2 ), "%s", r3 );
     }
@@ -438,31 +443,17 @@ int loadRuleFromCacheOrFile( int processType, char *irbSet, ruleStruct_t *inRule
     }
 #endif
 
-ret:
     ruleEngineConfig.ruleEngineStatus = INITIALIZED;
 
     return res;
 }
 int readRuleStructAndRuleSetFromFile( char *ruleBaseName, ruleStruct_t *inRuleStrct ) {
-    /*  int i; */
-    /*  char l0[MAX_RULE_LENGTH]; */
-    /*  char l1[MAX_RULE_LENGTH]; */
-    /*  char l2[MAX_RULE_LENGTH]; */
-    /*  char l3[MAX_RULE_LENGTH]; */
     char rulesFileName[MAX_NAME_LEN];
-    /*   FILE *file; */
-    /*   char buf[MAX_RULE_LENGTH]; */
-    //char *configDir;
-    /*   char *t; */
-    /*   i = inRuleStrct->MaxNumOfRules; */
 
     if ( ruleBaseName[0] == '/' || ruleBaseName[0] == '\\' ||
             ruleBaseName[1] == ':' ) {
         snprintf( rulesFileName, MAX_NAME_LEN, "%s", ruleBaseName );
-    }
-    else {
-        //configDir = getConfigDir();
-        //snprintf( rulesFileName, MAX_NAME_LEN, "%s/reConfigs/%s.re", configDir, ruleBaseName );
+    } else {
         std::string cfg_file, fn( ruleBaseName );
         fn += ".re";
         irods::error ret = irods::get_full_path_for_config_file( fn, cfg_file );
@@ -470,42 +461,9 @@ int readRuleStructAndRuleSetFromFile( char *ruleBaseName, ruleStruct_t *inRuleSt
             irods::log( PASS( ret ) );
             return ret.code();
         }
-        strncpy( rulesFileName, cfg_file.c_str(), MAX_NAME_LEN );
+        snprintf( rulesFileName, sizeof( rulesFileName ), "%s", cfg_file.c_str() );
     }
-    /*file = fopen(rulesFileName, "r");
-    if (file == NULL) {
-    #ifndef DEBUG
-        rodsLog(LOG_NOTICE,
-         "readRuleStructFromFile() could not open rules file %s\n",
-         rulesFileName);
-    #endif
-      return RULES_FILE_READ_ERROR;
-    }
-    buf[MAX_RULE_LENGTH-1]='\0';
-    while (fgets (buf, MAX_RULE_LENGTH-1, file) != NULL) {
-      if (buf[strlen(buf)-1] == '\n') buf[strlen(buf)-1] = '\0';
-      if (buf[0] == '#' || strlen(buf) < 4)
-        continue;
-    	char *l0, *l2, *l3;
-    	// rSplitStr(buf, l1, MAX_RULE_LENGTH, l0, MAX_RULE_LENGTH, '|');
-    	l0 = nextRuleSection(buf, l1);
-      inRuleStrct->action[i] = strdup(l1);
-      inRuleStrct->ruleHead[i] = strdup(l1);
-      if ((t = strstr(inRuleStrct->action[i],"(")) != NULL) {
-        *t = '\0';
-      }
-      inRuleStrct->ruleBase[i] = strdup(ruleBaseName);
-    	// rSplitStr(l0, l1, MAX_RULE_LENGTH, l3, MAX_RULE_LENGTH,'|');
-    	l3 = nextRuleSection(l0, l1);
-      inRuleStrct->ruleCondition[i] = strdup(l1);
-    	// rSplitStr(l3, l1, MAX_RULE_LENGTH, l2, MAX_RULE_LENGTH, '|');
-    	l2 = nextRuleSection(l3, l1);
-      inRuleStrct->ruleAction[i] = strdup(l1);
-      inRuleStrct->ruleRecovery[i] = strdup(l2);
-      i++;
-    }
-    fclose (file);
-    inRuleStrct->MaxNumOfRules = i;*/
+
     int errloc;
     rError_t errmsgBuf;
     errmsgBuf.errMsg = NULL;
@@ -603,5 +561,3 @@ int writeICatUserLogging( char *userName, int logging, rsComm_t *rsComm ) {
     rstrcpy( value, ( char * )( logging ? "true" : "false" ), MAX_NAME_LEN );
     return writeICatUserInfo( userName, RE_LOGGING_ATTR, value, rsComm );
 }
-
-

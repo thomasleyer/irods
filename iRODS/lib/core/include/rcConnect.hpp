@@ -9,7 +9,7 @@
 #ifndef RC_CONNECT_HPP
 #define RC_CONNECT_HPP
 
-#include "rodsDef.hpp"
+#include "rodsDef.h"
 #include "rodsVersion.hpp"
 #include "rodsError.hpp"
 #include "rodsLog.hpp"
@@ -195,8 +195,6 @@ typedef struct {
     char encryption_algorithm[ NAME_LEN ];
 
 } rsComm_t;
-
-void rcPipSigHandler();
 
 rcComm_t *
 rcConnect( const char *rodsHost, int rodsPort, const char *userName, const char *rodsZone,

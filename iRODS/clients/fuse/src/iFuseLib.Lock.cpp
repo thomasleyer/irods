@@ -21,6 +21,7 @@ boost::mutex* PathCacheLock = new boost::mutex();
 /* boost::mutex FileCacheLock; */
 boost::thread*            ConnManagerThr;
 boost::mutex*             ConnManagerLock = new boost::mutex();
+boost::mutex*             WaitForConnLock = new boost::mutex();
 boost::condition_variable ConnManagerCond;
 #else
 /*pthread_mutex_t DescLock;*/
@@ -29,6 +30,7 @@ boost::condition_variable ConnManagerCond;
 /* pthread_mutex_t FileCacheLock; */
 pthread_t ConnManagerThr;
 pthread_mutex_t ConnManagerLock;
+pthread_mutex_t WaitForConnLock;
 pthread_cond_t ConnManagerCond;
 #endif
 
@@ -62,7 +64,11 @@ void timeoutWait( boost::mutex** ConnManagerLock, boost::condition_variable *Con
     boost::unique_lock< boost::mutex > boost_lock( **ConnManagerLock );
     ConnManagerCond->timed_wait( boost_lock, tt );
 }
-void notifyTimeoutWait( boost::mutex **ConnManagerLock, boost::condition_variable *ConnManagerCond ) {
+void untimedWait( boost::mutex** ConnManagerLock, boost::condition_variable *ConnManagerCond ) {
+    boost::unique_lock< boost::mutex > boost_lock( **ConnManagerLock );
+    ConnManagerCond->wait( boost_lock );
+}
+void notifyWait( boost::mutex **ConnManagerLock, boost::condition_variable *ConnManagerCond ) {
     ConnManagerCond->notify_all( );
 }
 #else
@@ -97,7 +103,12 @@ pthread_mutex_lock( ConnManagerLock );
 pthread_cond_timedwait( ConnManagerCond, ConnManagerLock, &timeout );
 pthread_mutex_unlock( ConnManagerLock );
 }
-void notifyTimeoutWait( pthread_mutex_t *mutex, pthread_cond_t *cond ) {
+void untimedWait( pthread_mutex_t *ConnManagerLock, pthread_cond_t *ConnManagerCond ) {
+pthread_mutex_lock( ConnManagerLock );
+pthread_cond_wait( ConnManagerCond, ConnManagerLock );
+pthread_mutex_unlock( ConnManagerLock );
+}
+void notifyWait( pthread_mutex_t *mutex, pthread_cond_t *cond ) {
 pthread_mutex_lock( mutex );
 pthread_cond_signal( cond );
 pthread_mutex_unlock( mutex );

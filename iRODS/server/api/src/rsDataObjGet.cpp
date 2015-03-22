@@ -30,6 +30,10 @@ rsDataObjGet( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
     int remoteFlag;
     rodsServerHost_t *rodsServerHost;
     specCollCache_t *specCollCache = NULL;
+    if ( dataObjOutBBuf == NULL ) {
+        rodsLog( LOG_ERROR, "dataObjOutBBuf was null in call to rsDataObjGet." );
+        return SYS_INTERNAL_NULL_INPUT_ERR;
+    }
 
     resolveLinkedPath( rsComm, dataObjInp->objPath, &specCollCache,
                        &dataObjInp->condInput );
@@ -74,8 +78,7 @@ rsDataObjGet( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
         if ( status < 0 ) {
             return status;
         }
-        if ( status == 0 ||
-                ( dataObjOutBBuf != NULL && dataObjOutBBuf->len > 0 ) ) {
+        if ( status == 0 || dataObjOutBBuf->len > 0 ) {
             /* data included in buf */
             return status;
         }
@@ -158,9 +161,9 @@ _rsDataObjGet( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
             }
             if ( chksumStr != NULL ) {
                 rstrcpy( ( *portalOprOut )->chksum, chksumStr, NAME_LEN );
-                free( chksumStr );
             }
         }
+        free( chksumStr );
         return status;
     }
 
@@ -171,17 +174,15 @@ _rsDataObjGet( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
         memset( &dataObjCloseInp, 0, sizeof( dataObjCloseInp ) );
         dataObjCloseInp.l1descInx = l1descInx;
         rsDataObjClose( rsComm, &dataObjCloseInp );
-        if ( chksumStr != NULL ) {
-            free( chksumStr );
-        }
+        free( chksumStr );
         return status;
     }
 
     status = l1descInx;         /* means file not included */
     if ( chksumStr != NULL ) {
         rstrcpy( ( *portalOprOut )->chksum, chksumStr, NAME_LEN );
-        free( chksumStr );
     }
+    free( chksumStr );
 
     /* return portalOprOut to the client and wait for the rcOprComplete
      * call. That is when the parallel I/O is done */

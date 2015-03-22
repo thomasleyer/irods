@@ -387,6 +387,9 @@ signalIdbugExit()
 
 int
 main( int argc, char **argv ) {
+
+    signal( SIGPIPE, SIG_IGN );
+
     int status;
     int continueAllFlag = 0;
     int sleepSec = 1;
@@ -416,7 +419,7 @@ main( int argc, char **argv ) {
 #endif
 
 
-    while ( ( opt = getopt( argc, argv, "cChv:" ) ) != ( char )EOF ) {
+    while ( ( opt = getopt( argc, argv, "cChv:" ) ) != EOF ) {
         switch ( opt ) {
         case 'v':
             verbose = atoi( optarg );

@@ -112,6 +112,8 @@ chkCollForBundleOpr( rsComm_t *rsComm,
                          "chkCollForBundleOpr: specColl resc %s does not match %s",
                          collEnt->specColl.resource, resource );
                 rsCloseCollection( rsComm, &handleInx );
+                freeCollEntForChkColl( collEnt );
+                freeCollEntForChkColl( curCollEnt );
                 return SYS_COPY_NOT_EXIST_IN_RESC;
             }
             /* check permission */
@@ -123,6 +125,8 @@ chkCollForBundleOpr( rsComm_t *rsComm,
                          "chkCollForBundleOpr: no accPerm to specColl %s. status = %d",
                          collEnt->specColl.collection, status );
                 rsCloseCollection( rsComm, &handleInx );
+                freeCollEntForChkColl( collEnt );
+                freeCollEntForChkColl( curCollEnt );
                 return status;
             }
             free( collEnt );
@@ -189,6 +193,7 @@ chkCollForBundleOpr( rsComm_t *rsComm,
                                  "chkCollForBundleOpr: no accPerm to %s. status = %d",
                                  myPath, status );
                         rsCloseCollection( rsComm, &handleInx );
+                        freeCollEntForChkColl( collEnt );
                         return status;
                     }
                     else {

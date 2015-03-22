@@ -10,7 +10,6 @@
 #define COLLECTION_HPP
 
 #include "rods.hpp"
-#include "initServer.hpp"
 #include "objInfo.hpp"
 #include "dataObjInpOut.hpp"
 #include "ruleExecSubmit.hpp"
@@ -37,6 +36,4 @@ collStatAllKinds( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
                   rodsObjStat_t **rodsObjStatOut );
 int
 rsMkCollR( rsComm_t *rsComm, const char *startColl, const char *destColl );
-int
-rsQueryDirectoryMeta( rsComm_t *rsComm, const char *collection, keyValPair_t *condInput );
 #endif	/* COLLECTION_H */

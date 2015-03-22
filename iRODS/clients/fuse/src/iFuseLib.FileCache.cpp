@@ -138,21 +138,6 @@ int _iFuseFileCacheFlush( fileCache_t *fileCache ) {
         fileCache->state = HAVE_READ_CACHE;
     }
 
-
-    /*	UNLOCK_STRUCT(*fileCache);
-
-    	pathCache_t *tmpPathCache;
-    	if (matchAndLockPathCache (fileCache->localPath, &tmpPathCache) == 1) {
-    		tmpPathCache->stbuf.st_size = stbuf.st_size;
-    		UNLOCK_STRUCT(*tmpPathCache);
-    	}
-    	LOCK_STRUCT(*fileCache);
-    */
-    /*	rodsLog (LOG_ERROR,
-    			"ifuseClose: IFuseDesc indicated a newly created cache, but does not exist for %s",
-    			path);
-    	savedStatus = -EBADF; */
-
     return status;
 }
 int ifuseFileCacheSwapOut( fileCache_t *fileCache ) {
@@ -160,10 +145,7 @@ int ifuseFileCacheSwapOut( fileCache_t *fileCache ) {
     if ( fileCache == NULL ) {
         return USER__NULL_INPUT_ERR;
     }
-    LOCK_STRUCT( *fileCache );
-
     /* flush local cache file to remote server */
-    int objFd;
 
     LOCK_STRUCT( *fileCache );
     /* simply return if no file cache or the file cache hasn't been updated */
@@ -201,7 +183,7 @@ int ifuseFileCacheSwapOut( fileCache_t *fileCache ) {
         return status;
     }
 
-    objFd = status;
+    int objFd = status;
 
     /* close cache file */
     status = close( fileCache->iFd );
@@ -215,19 +197,6 @@ int ifuseFileCacheSwapOut( fileCache_t *fileCache ) {
     }
     fileCache->iFd = objFd;
     fileCache->state = NO_FILE_CACHE;
-
-    /*	UNLOCK_STRUCT(*fileCache);
-
-    	pathCache_t *tmpPathCache;
-    	if (matchAndLockPathCache (fileCache->localPath, &tmpPathCache) == 1) {
-    		tmpPathCache->stbuf.st_size = stbuf.st_size;
-    		UNLOCK_STRUCT(*tmpPathCache);
-    	}
-    	*/
-    /*	rodsLog (LOG_ERROR,
-    			"ifuseClose: IFuseDesc indicated a newly created cache, but does not exist for %s",
-    			path);
-    	savedStatus = -EBADF; */
 
     return status;
 
@@ -272,7 +241,10 @@ fileCache_t *addFileCache( int iFd, char *objPath, char *localPath, char *cacheP
             ListNode *node = FileCacheList->list->head;
             swapCache = ( fileCache_t * ) node->value;
             listRemoveNoRegion( FileCacheList->list, node );
+
+            UNLOCK_STRUCT( *FileCacheList );
             ifuseFileCacheSwapOut( swapCache );
+            LOCK_STRUCT( *FileCacheList );
 
             listAppendNoRegion( FileCacheList->list, fileCache );
 

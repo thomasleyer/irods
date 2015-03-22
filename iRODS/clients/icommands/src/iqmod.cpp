@@ -39,7 +39,7 @@ modDelayedRule( char *ruleId, char *fieldName, char *fieldValue ) {
         }
     }
 
-    strncpy( ruleExecModInp.ruleId, ruleId, NAME_LEN );
+    snprintf( ruleExecModInp.ruleId, sizeof( ruleExecModInp.ruleId ), "%s", ruleId );
     addKeyVal( &ruleExecModInp.condInput, fieldName, fieldValue );
 
     status = rcRuleExecMod( Conn, &ruleExecModInp );
@@ -56,6 +56,9 @@ modDelayedRule( char *ruleId, char *fieldName, char *fieldValue ) {
 
 int
 main( int argc, char **argv ) {
+
+    signal( SIGPIPE, SIG_IGN );
+
     int status;
     rErrMsg_t errMsg;
 

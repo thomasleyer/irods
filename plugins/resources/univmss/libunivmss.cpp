@@ -139,6 +139,7 @@ extern "C" {
 
         execCmdOut_t *execCmdOut = NULL;
         int status = _rsExecCmd( &execCmdInp, &execCmdOut );
+        freeCmdExecOut( execCmdOut );
 
         if ( status < 0 ) {
             status = UNIV_MSS_UNLINK_ERR - errno;
@@ -248,10 +249,12 @@ extern "C" {
             msg << "univ_mss_file_stat - failed for [";
             msg << filename;
             msg << "]";
+            freeCmdExecOut( execCmdOut );
             return ERROR( status, msg.str() );
 
         }
 
+        freeCmdExecOut( execCmdOut );
         return CODE( status );
 
     } // univ_mss_file_stat
@@ -297,9 +300,6 @@ extern "C" {
         int mode = fco->mode();
         int status = 0;
         execCmd_t execCmdInp;
-        char cmdArgv[HUGE_NAME_LEN] = "";
-        char strmode[4];
-        execCmdOut_t *execCmdOut = NULL;
 
         if ( mode != getDefDirMode() ) {
             mode = getDefFileMode();
@@ -309,7 +309,9 @@ extern "C" {
         snprintf( execCmdInp.cmd, sizeof( execCmdInp.cmd ), "%s", script.c_str() );
         snprintf( execCmdInp.cmdArgv, sizeof( execCmdInp.cmdArgv ), "chmod '%s' %o", filename.c_str(), mode );
         snprintf( execCmdInp.execAddr, sizeof( execCmdInp.execAddr ), "%s", "localhost" );
+        execCmdOut_t *execCmdOut = NULL;
         status = _rsExecCmd( &execCmdInp, &execCmdOut );
+        freeCmdExecOut( execCmdOut );
 
         if ( status < 0 ) {
             status = UNIV_MSS_CHMOD_ERR - errno;
@@ -355,14 +357,14 @@ extern "C" {
 
         int status = 0;
         execCmd_t execCmdInp;
-        char cmdArgv[HUGE_NAME_LEN] = "";
-        execCmdOut_t *execCmdOut = NULL;
 
         bzero( &execCmdInp, sizeof( execCmdInp ) );
         snprintf( execCmdInp.cmd, sizeof( execCmdInp.cmd ), "%s", script.c_str() );
         snprintf( execCmdInp.cmdArgv, sizeof( execCmdInp.cmdArgv ), "mkdir '%s'", dirname.c_str() );
         snprintf( execCmdInp.execAddr, sizeof( execCmdInp.execAddr ), "%s", "localhost" );
+        execCmdOut_t *execCmdOut = NULL;
         status = _rsExecCmd( &execCmdInp, &execCmdOut );
+        freeCmdExecOut( execCmdOut );
         if ( status < 0 ) {
             status = UNIV_MSS_MKDIR_ERR - errno;
             std::stringstream msg;
@@ -468,13 +470,14 @@ extern "C" {
         err = univ_mss_file_mkdir( context );
 
         execCmd_t execCmdInp;
-        execCmdOut_t *execCmdOut = NULL;
 
         bzero( &execCmdInp, sizeof( execCmdInp ) );
         snprintf( execCmdInp.cmd, sizeof( execCmdInp.cmd ), "%s", script.c_str() );
         snprintf( execCmdInp.cmdArgv, sizeof( execCmdInp.cmdArgv ), "mv '%s' '%s'", filename.c_str(), _new_file_name );
         snprintf( execCmdInp.execAddr, sizeof( execCmdInp.execAddr ), "%s", "localhost" );
+        execCmdOut_t *execCmdOut = NULL;
         status = _rsExecCmd( &execCmdInp, &execCmdOut );
+        freeCmdExecOut( execCmdOut );
 
         if ( status < 0 ) {
             status = UNIV_MSS_RENAME_ERR - errno;
@@ -616,8 +619,6 @@ extern "C" {
         err = univ_mss_file_mkdir( context );
 
         execCmdOut_t* execCmdOut = NULL;
-        char  cmdArgv[HUGE_NAME_LEN] = "";
-
 
         // =-=-=-=-=-=-=-
         // get the script property
@@ -653,6 +654,7 @@ extern "C" {
             msg << execCmdOut->stderrBuf.buf;
             msg << "]  status [";
             msg << execCmdOut->status << "]";
+            freeCmdExecOut( execCmdOut );
             return ERROR( status, msg.str() );
         }
 

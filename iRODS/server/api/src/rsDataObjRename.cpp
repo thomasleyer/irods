@@ -96,14 +96,14 @@ rsDataObjRename( rsComm_t *rsComm, dataObjCopyInp_t *dataObjRenameInp ) {
     }
 
     if ( srcType >= 0 ) { /* specColl of some sort */
-        if ( destType == SYS_SPEC_COLL_OBJ_NOT_EXIST ) {
+        if ( srcDataObjInfo && destType == SYS_SPEC_COLL_OBJ_NOT_EXIST ) {
             status = specCollObjRename( rsComm, srcDataObjInfo,
                                         destDataObjInfo );
         }
         else {
-            /* dest is regular obj. Allow apecial case where the src
+            /* dest is regular obj. Allow special case where the src
              * is in a MOUNTED_COLL */
-            if ( srcDataObjInfo->specColl->collClass == MOUNTED_COLL ) {
+            if ( srcDataObjInfo && srcDataObjInfo->specColl->collClass == MOUNTED_COLL ) {
                 /* a special case for moving obj from mounted collection to
                  * regular collection */
                 status = moveMountedCollObj( rsComm, srcDataObjInfo, srcType,
@@ -172,6 +172,10 @@ getMultiCopyPerResc( rsComm_t *rsComm ) { // JMC - backport 4556
 int
 _rsDataObjRename( rsComm_t *rsComm, dataObjCopyInp_t *dataObjRenameInp ) {
 #ifdef RODS_CAT
+    if ( rsComm == NULL ) {
+        rodsLog( LOG_ERROR, "_rsDataObjRename was passed a null rsComm" );
+        return SYS_INTERNAL_NULL_INPUT_ERR;
+    }
     int status;
     char srcColl[MAX_NAME_LEN], srcObj[MAX_NAME_LEN];
     char destColl[MAX_NAME_LEN], destObj[MAX_NAME_LEN];
@@ -187,10 +191,8 @@ _rsDataObjRename( rsComm_t *rsComm, dataObjCopyInp_t *dataObjRenameInp ) {
 
     memset( ( char* )&rei2, 0, sizeof( ruleExecInfo_t ) );
     rei2.rsComm = rsComm;
-    if ( rsComm != NULL ) {
-        rei2.uoic = &rsComm->clientUser;
-        rei2.uoip = &rsComm->proxyUser;
-    }
+    rei2.uoic = &rsComm->clientUser;
+    rei2.uoip = &rsComm->proxyUser;
     rei2.doinp = &dataObjRenameInp->srcDataObjInp;
 
     srcDataObjInp = &dataObjRenameInp->srcDataObjInp;
@@ -456,6 +458,7 @@ l3Rename( rsComm_t *rsComm, dataObjInfo_t *dataObjInfo, char *newFileName ) {
         rstrcpy( fileRenameInp.addr.hostAddr, location.c_str(),       NAME_LEN );
         fileRenameOut_t* ren_out = 0;
         status = rsFileRename( rsComm, &fileRenameInp, &ren_out );
+        free( ren_out );
     }
     return status;
 }
@@ -526,7 +529,7 @@ moveMountedCollDataObj( rsComm_t *rsComm, dataObjInfo_t *srcDataObjInfo,
             if ( error_code < 0 ) {
                 rodsLog( LOG_ERROR, "renameFilePathToNewDir failed in moveMountedCollDataObj with error code %d", error_code );
             }
-            strncpy( destDataObjInfo.filePath, new_fn, MAX_NAME_LEN );
+            snprintf( destDataObjInfo.filePath, sizeof( destDataObjInfo.filePath ), "%s", new_fn );
         }
         else if ( status == 0 ) {
             /* obj exist */

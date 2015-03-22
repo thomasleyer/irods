@@ -9,10 +9,12 @@
 #include "irodsReServer.hpp"
 #include "reServerLib.hpp"
 #include "rsApiHandler.hpp"
+#include "rsGlobal.hpp"
 #include "rsIcatOpr.hpp"
 #include <syslog.h>
 #include "miscServerFunct.hpp"
 #include "reconstants.hpp"
+#include "initServer.hpp"
 #include "irods_server_state.hpp"
 #include "irods_exception.hpp"
 #include "irods_server_properties.hpp"
@@ -28,6 +30,15 @@
 using namespace boost::filesystem;
 
 
+int getAgentProcCnt() {
+    return 0;
+}
+
+int getAgentProcPIDs(
+    std::vector<int>& _pids ) {
+    _pids.clear();
+    return 0;
+}
 
 extern int msiAdmClearAppRuleStruct( ruleExecInfo_t *rei );
 
@@ -45,27 +56,15 @@ main( int argc, char **argv ) {
     int logFd;
     char *ruleExecId = NULL;
     int jobType = 0;
-    bool run_server_as_root = false;
 
     ProcessType = RE_SERVER_PT;
-
-    irods::server_properties::getInstance().get_property<bool>( RUN_SERVER_AS_ROOT_KW, run_server_as_root );
-
-#ifndef windows_platform
-    if ( run_server_as_root ) {
-        if ( initServiceUser() < 0 ) {
-            exit( 1 );
-        }
-    }
-#endif
-
 
 #ifndef _WIN32
     signal( SIGINT, signalExit );
     signal( SIGHUP, signalExit );
     signal( SIGTERM, signalExit );
     signal( SIGUSR1, signalExit );
-    signal( SIGPIPE, rsPipSigalHandler );
+    signal( SIGPIPE, rsPipeSignalHandler );
     /* XXXXX switched to SIG_DFL for embedded python. child process
      * went away. But probably have to call waitpid.
      * signal(SIGCHLD, SIG_IGN); */
@@ -316,14 +315,7 @@ reSvrSleep( rsComm_t *rsComm ) {
 
 int
 chkAndResetRule() {
-//    char *configDir;
-//    char rulesFileName[MAX_NAME_LEN];
     int status = 0;
-    uint mtime;
-
-//    configDir = getConfigDir();
-//    snprintf( rulesFileName, MAX_NAME_LEN, "%s/reConfigs/core.re",
-//              configDir );
 
     std::string re_full_path;
     irods::error ret = irods::get_full_path_for_config_file( "core.re", re_full_path );
@@ -341,7 +333,7 @@ chkAndResetRule() {
         return status;
     }
 
-    mtime = ( uint ) last_write_time( p );
+    const uint mtime = ( uint ) last_write_time( p );
 
     if ( CoreIrbTimeStamp == 0 ) {
         /* first time */
@@ -365,4 +357,3 @@ chkAndResetRule() {
     }
     return status;
 }
-

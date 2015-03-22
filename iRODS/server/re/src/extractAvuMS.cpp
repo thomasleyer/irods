@@ -69,12 +69,7 @@ msiReadMDTemplateIntoTagStruct( msParam_t* bufParam, msParam_t* tagParam, ruleEx
     tagStruct_t *tagValues;
 
     char *t, *t1, *t2, *t3, *t4, *t5, *t6, *t7, *t8;
-    /*
-    int len;
-    int l1, l2;
-    */
     int i, j;
-    /*  char *preg[4];*/
     regex_t preg[4];
     regmatch_t pm[4];
     char errbuff[100];
@@ -86,20 +81,6 @@ msiReadMDTemplateIntoTagStruct( msParam_t* bufParam, msParam_t* tagParam, ruleEx
         return USER_PARAM_TYPE_ERR;
     }
     tmplObjBuf = ( bytesBuf_t * ) bufParam->inpOutBuf;
-    /*
-    preg[0] =  regcmp("<PRETAG>", (char *)0);
-    if (preg[0] == NULL)
-      return INVALID_REGEXP;
-    preg[1] =  regcmp("</PRETAG>", (char *)0);
-    if (preg[1] == NULL)
-      return INVALID_REGEXP;
-    preg[2] =  regcmp("<POSTTAG>", (char *)0);
-    if (preg[0] == NULL)
-      return INVALID_REGEXP;
-    preg[3] =  regcmp("</POSTTAG>", (char *)0);
-    if (preg[1] == NULL)
-      return INVALID_REGEXP;
-    */
     j = regcomp( &preg[0], "<PRETAG>", REG_EXTENDED );
     if ( j != 0 ) {
         regerror( j, &preg[0], errbuff, sizeof( errbuff ) );
@@ -131,31 +112,6 @@ msiReadMDTemplateIntoTagStruct( msParam_t* bufParam, msParam_t* tagParam, ruleEx
     tagValues = ( tagStruct_t* )mallocAndZero( sizeof( tagStruct_t ) );
     tagValues->len = 0;
     t1 = t;
-#ifdef BABABA
-    /*
-    while ((t2 = regex(preg[0], t1)) != NULL) { / * t2 starts preTag * /
-      if ((t3 = regex(preg[1], t2)) == NULL)    / * t3 starts keyValue * /
-        break;
-      t6 = __loc1;                              / * t6 ends preTag * /
-      *t6 = '\0';
-      if ((t5 = regex(preg[2], t3)) == NULL)    / *  t5 starts postTag * /
-        break;
-      t4 = __loc1;                              / * t4 ends keyValue * /
-      *t4 = '\0';
-      if ((t7 = regex(preg[3], t5)) == NULL)    / * t7 ends the line * /
-        break;
-      t8 = __loc1;                              / * t8 ends postTag * /
-      *t8 = '\0';
-
-      i = addTagStruct (tagValues, t2, t5, t3);
-      if (i != 0)
-        return i;
-      t1 = t7;
-      if (*t1 == '\0')
-        break;
-    }
-    */
-#endif /*  BABABA */
     while ( regexec( &preg[0], t1, 1, &pm[0], 0 ) == 0 ) {
         t2 = t1 + pm[0].rm_eo ;                        /* t2 starts preTag */
         if ( regexec( &preg[1], t2, 1, &pm[1], 0 ) != 0 ) {
@@ -200,11 +156,12 @@ msiReadMDTemplateIntoTagStruct( msParam_t* bufParam, msParam_t* tagParam, ruleEx
     free( t );
 
     if ( tagValues->len == 0 ) {
+        free( tagValues );
         return NO_VALUES_FOUND;
     }
 
     tagParam->inOutStruct = ( void * ) tagValues;
-    tagParam->type = ( char * ) strdup( TagStruct_MS_T );
+    tagParam->type = strdup( TagStruct_MS_T );
 
     return 0;
 
@@ -380,45 +337,22 @@ msiExtractTemplateMDFromBuf( msParam_t* bufParam, msParam_t* tagParam,
     t1 = t;
     for ( i = 0; i  < tagValues->len ; i++ ) {
         t1 = t;
-#ifdef BABABA
-        /*
-        preg[0] = regcmp(tagValues->preTag[i], (char *)0);
-        if (preg[0] == NULL)
-          return INVALID_REGEXP;
-        preg[1] =  regcmp(tagValues->postTag[i], (char *)0);
-        if (preg[1] == NULL)
-          return INVALID_REGEXP;
-        while ((t2 = regex(preg[0], t1)) != NULL) { / * t2 starts value * /
-          if ((t3 = regex(preg[1], t2)) == NULL) {
-        free(preg[0]);
-        free(preg[1]);
-        break;
-          }
-          t4 = __loc1;                              / * t4 ends value * /
-          c = *t4;
-          *t4 = '\0';
-          j = addKeyVal(metaDataPairs, tagValues->keyWord[i], t2);
-          *t4 = c;
-          if (j != 0)
-        return j;
-          t1 = t3;
-          if (*t1 == '\0')
-        break;
-        }
-        free(preg[0]);
-        free(preg[1]);
-        */
-#endif /*  BABABA */
         j = regcomp( &preg[0], tagValues->preTag[i], REG_EXTENDED );
         if ( j != 0 ) {
             regerror( j, &preg[0], errbuff, sizeof( errbuff ) );
             rodsLog( LOG_NOTICE, "msiExtractTemplateMDFromBuf: Error in regcomp: %s\n", errbuff );
+            clearKeyVal( metaDataPairs );
+            free( metaDataPairs );
+            free( t );
             return INVALID_REGEXP;
         }
         j = regcomp( &preg[1], tagValues->postTag[i], REG_EXTENDED );
         if ( j != 0 ) {
             regerror( j, &preg[1], errbuff, sizeof( errbuff ) );
             rodsLog( LOG_NOTICE, "msiExtractTemplateMDFromBuf: Error in regcomp: %s\n", errbuff );
+            clearKeyVal( metaDataPairs );
+            free( metaDataPairs );
+            free( t );
             return INVALID_REGEXP;
         }
         while ( regexec( &preg[0], t1, 1, &pm[0], 0 ) == 0 ) {
@@ -434,6 +368,7 @@ msiExtractTemplateMDFromBuf( msParam_t* bufParam, msParam_t* tagParam,
             j = addKeyVal( metaDataPairs, tagValues->keyWord[i], t2 );
             *t4 = c;
             if ( j != 0 ) {
+                free( t );
                 return j;
             }
             t1 = t3;
@@ -447,9 +382,10 @@ msiExtractTemplateMDFromBuf( msParam_t* bufParam, msParam_t* tagParam,
         continue;
     }
 
+    free( t );
 
     metadataParam->inOutStruct = ( void * ) metaDataPairs;
-    metadataParam->type = ( char * ) strdup( KeyValPair_MS_T );
+    metadataParam->type = strdup( KeyValPair_MS_T );
 
     return 0;
 }
@@ -655,7 +591,7 @@ msiGetObjType( msParam_t *objParam, msParam_t *typeParam,
         return i;
     }
     typeParam->inOutStruct = ( char * ) strdup( objType );
-    typeParam->type = ( char * ) strdup( STR_MS_T );
+    typeParam->type = strdup( STR_MS_T );
     return 0;
 }
 

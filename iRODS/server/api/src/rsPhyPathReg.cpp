@@ -135,16 +135,14 @@ irsPhyPathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp ) {
                 // to this given leaf resource - this our hier
                 getHierarchyForRescOut_t* get_hier_out = 0;
                 getHierarchyForRescInp_t  get_hier_inp;
-                strncpy(
-                    get_hier_inp.resc_name_,
-                    dst_resc,
-                    MAX_NAME_LEN );
+                snprintf( get_hier_inp.resc_name_, sizeof( get_hier_inp.resc_name_ ), "%s", dst_resc );
                 status = rsGetHierarchyForResc(
                              rsComm,
                              &get_hier_inp,
                              &get_hier_out );
                 if ( status < 0 ) {
                     irods::log( ERROR( status, "failed to get resc hier" ) );
+                    free( get_hier_out );
                     return status;
                 }
 
@@ -165,6 +163,7 @@ irsPhyPathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp ) {
                     &phyPathRegInp->condInput,
                     DEST_RESC_NAME_KW,
                     root_resc.c_str() );
+                free( get_hier_out );
 
             }
             // =-=-=-=-=-=-=-
@@ -412,7 +411,7 @@ _rsPhyPathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp,
 
         }
         else {
-            status = filePathReg( rsComm, phyPathRegInp, filePath, _resc_name );
+            status = filePathReg( rsComm, phyPathRegInp, _resc_name );
         }
     }
 
@@ -467,8 +466,7 @@ filePathRegRepl( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp, char *filePath,
 }
 
 int
-filePathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp, char *filePath,
-             const char *_resc_name ) {
+filePathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp, const char *_resc_name ) {
     dataObjInfo_t dataObjInfo;
     memset( &dataObjInfo, 0, sizeof( dataObjInfo ) );
 
@@ -496,7 +494,6 @@ filePathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp, char *filePath,
                  dataObjInfo.objPath, status );
         return status;
     }
-    addKeyVal( &dataObjInfo.condInput, FILE_SOURCE_PATH_KW, filePath );
 
     if ( ( chksum = getValByKey( &phyPathRegInp->condInput,
                                  REG_CHKSUM_KW ) ) != NULL ) {
@@ -536,7 +533,6 @@ filePathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp, char *filePath,
 int
 dirPathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp, char *filePath,
             const char *_resc_name ) {
-    rodsStat_t *myStat = NULL;
     fileStatInp_t fileStatInp;
     collInp_t collCreateInp;
     fileOpendirInp_t fileOpendirInp;
@@ -593,17 +589,6 @@ dirPathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp, char *filePath,
 
         rstrcpy( fileStatInp.rescHier, resc_hier, MAX_NAME_LEN );
         rstrcpy( fileStatInp.objPath, phyPathRegInp->objPath, MAX_NAME_LEN );
-
-        status = rsFileStat( rsComm, &fileStatInp, &myStat );
-        if ( status != 0 ) {
-            rodsLog( LOG_ERROR,
-                     "dirPathReg: rsFileStat failed for %s, status = %d",
-                     filePath, status );
-            return status;
-        }
-        getFileMetaFromStat( myStat, &collCreateInp.condInput );
-        addKeyVal( &collCreateInp.condInput, FILE_SOURCE_PATH_KW, filePath );
-        free( myStat );
 
         /* create the coll just in case it does not exist */
         status = rsCollCreate( rsComm, &collCreateInp );
@@ -703,8 +688,7 @@ dirPathReg( rsComm_t *rsComm, dataObjInp_t *phyPathRegInp, char *filePath,
             else {
                 addKeyVal( &subPhyPathRegInp.condInput, FILE_PATH_KW,
                            fileStatInp.fileName );
-                status = filePathReg( rsComm, &subPhyPathRegInp,
-                                      fileStatInp.fileName, _resc_name );
+                status = filePathReg( rsComm, &subPhyPathRegInp, _resc_name );
             }
         }
         else if ( ( myStat->st_mode & S_IFDIR ) != 0 ) {    /* a directory */
@@ -975,7 +959,7 @@ int structFileReg(
     }
 
     memset( &dataObjInp, 0, sizeof( dataObjInp ) );
-    rstrcpy( dataObjInp.objPath, structFilePath, sizeof( dataObjInp ) );
+    rstrcpy( dataObjInp.objPath, structFilePath, sizeof( dataObjInp.objPath ) );
     /* user need to have write permission */
     dataObjInp.openFlags = O_WRONLY;
     status = getDataObjInfoIncSpecColl( rsComm, &dataObjInp, &dataObjInfo );
@@ -1031,7 +1015,6 @@ int structFileReg(
 int
 structFileSupport( rsComm_t *rsComm, char *collection, char *collType,
                    char* resc_hier ) {
-    rodsStat_t *myStat = NULL;
     int status;
     subFile_t subFile;
     specColl_t specColl;
@@ -1081,14 +1064,10 @@ structFileSupport( rsComm_t *rsComm, char *collection, char *collType,
     rstrcpy( subFile.subFilePath, "/fakeDir1/fakeDir2/myFakeFile", MAX_NAME_LEN );
     rstrcpy( subFile.addr.hostAddr, location.c_str(), NAME_LEN );
 
+    rodsStat_t *myStat = NULL;
     status = rsSubStructFileStat( rsComm, &subFile, &myStat );
-
-    if ( status == SYS_NOT_SUPPORTED ) {
-        return 0;
-    }
-    else {
-        return 1;
-    }
+    free( myStat );
+    return status != SYS_NOT_SUPPORTED;
 }
 
 int

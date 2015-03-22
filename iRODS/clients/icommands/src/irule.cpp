@@ -92,7 +92,7 @@ printMsParamNew( msParamArray_t *outParamArray, int output ) {
 
         msParam = outParamArray->msParam[i];
 
-        if ( strcmp( msParam->label, "ruleExecOut" ) == 0 ) {
+        if ( msParam->label != NULL && strcmp( msParam->label, "ruleExecOut" ) == 0 ) {
             continue;
         }
 
@@ -149,6 +149,9 @@ printMsParamNew( msParamArray_t *outParamArray, int output ) {
 
 int
 main( int argc, char **argv ) {
+
+    signal( SIGPIPE, SIG_IGN );
+
     int status;
     rodsEnv myEnv;
     rErrMsg_t errMsg;

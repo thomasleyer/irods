@@ -8,6 +8,7 @@ else:
     import unittest2 as unittest
 from resource_suite import ResourceBase
 from pydevtest_common import assertiCmd, assertiCmdFail, interruptiCmd, getiCmdOutput, get_irods_top_level_dir, get_irods_config_dir
+import pydevtest_common
 import pydevtest_sessions as s
 import socket
 import commands
@@ -59,6 +60,7 @@ class Test_LoadBalanced_Resource(unittest.TestCase, ResourceBase):
         self.run_resource_teardown()
         s.twousers_down()
 
+    @unittest.skipIf(pydevtest_common.irods_test_constants.RUN_AS_RESOURCE_SERVER, "Skip for topology testing from resource server")
     def test_load_balanced(self):
         # =-=-=-=-=-=-=-
         # read server_config.json and .odbc.ini

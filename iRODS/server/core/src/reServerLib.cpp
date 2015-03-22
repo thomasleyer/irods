@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #endif
 #include "reServerLib.hpp"
+#include "rodsConnect.h"
 #include "ruleExecSubmit.hpp"
 #include "ruleExecDel.hpp"
 #include "genQuery.hpp"
@@ -20,6 +21,7 @@
 #include "reFuncDefs.hpp"
 #include "irods_stacktrace.hpp"
 #include "irods_server_properties.hpp"
+#include "initServer.hpp"
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/convenience.hpp>
@@ -974,7 +976,7 @@ fillExecSubmitInp( ruleExecSubmitInp_t * ruleExecSubmitInp,  char * exeStatus,
         }
     }
 
-    rstrcpy( ruleExecSubmitInp->exeTime, exeTime, NAME_LEN );
+    rstrcpy( ruleExecSubmitInp->exeTime, exeTime, TIME_LEN );
     rstrcpy( ruleExecSubmitInp->exeStatus, exeStatus, NAME_LEN );
     rstrcpy( ruleExecSubmitInp->ruleExecId, ruleExecId, NAME_LEN );
 

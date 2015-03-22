@@ -513,7 +513,7 @@ msiSetDataTypeFromExt( ruleExecInfo_t *rei ) {
     char logicalCollName[MAX_NAME_LEN];
     char logicalFileName[MAX_NAME_LEN] = "";
     status = splitPathByKey( dataObjInfoHead->objPath,
-                             logicalCollName, sizeof(logicalCollName), logicalFileName, sizeof(logicalFileName), '/' );
+                             logicalCollName, sizeof( logicalCollName ), logicalFileName, sizeof( logicalFileName ), '/' );
     if ( strlen( logicalFileName ) <= 0 ) {
         return 0;
     }
@@ -521,7 +521,7 @@ msiSetDataTypeFromExt( ruleExecInfo_t *rei ) {
     char logicalFileNameNoExtension[MAX_NAME_LEN] = "";
     char logicalFileNameExt[MAX_NAME_LEN] = "";
     status = splitPathByKey( logicalFileName,
-                             logicalFileNameNoExtension, sizeof(logicalFileNameNoExtension), logicalFileNameExt, sizeof(logicalFileNameExt), '.' );
+                             logicalFileNameNoExtension, sizeof( logicalFileNameNoExtension ), logicalFileNameExt, sizeof( logicalFileNameExt ), '.' );
     if ( strlen( logicalFileNameExt ) <= 0 ) {
         return 0;
     }
@@ -532,11 +532,11 @@ msiSetDataTypeFromExt( ruleExecInfo_t *rei ) {
     addInxIval( &genQueryInp.selectInp, COL_TOKEN_NAME, 1 );
 
     char condStr1[MAX_NAME_LEN];
-    snprintf( condStr1, sizeof(condStr1), "= 'data_type'" );
+    snprintf( condStr1, sizeof( condStr1 ), "= 'data_type'" );
     addInxVal( &genQueryInp.sqlCondInp,  COL_TOKEN_NAMESPACE, condStr1 );
 
     char condStr2[MAX_NAME_LEN];
-    snprintf( condStr2, sizeof(condStr2), "like '%s|.%s|%s'", "%", logicalFileNameExt, "%" );
+    snprintf( condStr2, sizeof( condStr2 ), "like '%s|.%s|%s'", "%", logicalFileNameExt, "%" );
     addInxVal( &genQueryInp.sqlCondInp,  COL_TOKEN_VALUE2, condStr2 );
 
     genQueryInp.maxRows = 1;
@@ -559,6 +559,10 @@ msiSetDataTypeFromExt( ruleExecInfo_t *rei ) {
     keyValPair_t regParam;
     memset( &regParam, 0, sizeof( regParam ) );
     addKeyVal( &regParam, DATA_TYPE_KW,  genQueryOut->sqlResult[0].value );
+
+    if ( strcmp(dataObjInfoHead->rescHier, "") ) {
+        addKeyVal( &regParam, IN_PDMO_KW, dataObjInfoHead->rescHier );
+    }
 
     modDataObjMeta_t modDataObjMetaInp;
     modDataObjMetaInp.dataObjInfo = dataObjInfoHead;
@@ -742,7 +746,7 @@ msiSysReplDataObj( msParam_t *xcacheResc, msParam_t *xflag,
  *    is an integer value in MBytes. It also accepts the word "default" which sets
  *    sizePerThrInMb to a default value of 32.
  * \param[in] xmaxNumThrStr - The maximum number of threads to use. It accepts integer
- *    value up to 16. It also accepts the word "default" which sets maxNumThr to a default value of 4.
+ *    value up to 64. It also accepts the word "default" which sets maxNumThr to a default value of 4.
  * \param[in] xwindowSizeStr - The TCP window size in Bytes for the parallel transfer. A value of 0 or "default" means a default size of 1,048,576 Bytes.
  * \param[in,out] rei - The RuleExecInfo structure that is automatically
  *    handled by the rule engine. The user does not include rei as a
@@ -1518,7 +1522,7 @@ msiSetRescQuotaPolicy( msParam_t *xflag, ruleExecInfo_t *rei ) {
  *
  * \usage See clients/icommands/test/rules3.0/
  *
- * \param[in] inpParam1 - a INT with the id of the object (can be null if unknown, the next param will then be used)
+ * \param[in] inpParam1 - a STR_MS_T with the id of the object (can be null if unknown, the next param will then be used)
  * \param[in] inpParam2 - a msParam of type DataObjInp_MS_T or a STR_MS_T which would be taken as dataObj path
  * \param[in] inpParam3 - a INT which gives the replica number
  * \param[in] inpParam4 - a STR_MS_T containing the comment
@@ -1569,7 +1573,7 @@ msiSetReplComment( msParam_t *inpParam1, msParam_t *inpParam2,
 
     /* parse inpParam2: data object path */
     if ( parseMspForStr( inpParam2 ) ) {
-        strncpy( dataObjInfo.objPath, parseMspForStr( inpParam2 ), MAX_NAME_LEN );
+        snprintf( dataObjInfo.objPath, sizeof( dataObjInfo.objPath ), "%s", parseMspForStr( inpParam2 ) );
     }
     /* make sure to have at least data ID or path */
     if ( !( dataIdStr || strlen( dataObjInfo.objPath ) > 0 ) ) {
@@ -1588,6 +1592,9 @@ msiSetReplComment( msParam_t *inpParam1, msParam_t *inpParam2,
     }
     memset( &regParam, 0, sizeof( regParam ) );
     addKeyVal( &regParam, DATA_COMMENTS_KW, dataCommentStr );
+    if ( strcmp(dataObjInfo.rescHier, "") ) {
+        addKeyVal( &regParam, IN_PDMO_KW, dataObjInfo.rescHier );
+    }
 
     rodsLog( LOG_NOTICE, "msiSetReplComment: mod %s (%d) with %s",
              dataObjInfo.objPath, dataObjInfo.replNum, dataCommentStr );
@@ -1831,6 +1838,11 @@ msiSysMetaModify( msParam_t *sysMetadata, msParam_t *value, ruleExecInfo_t *rei 
                                 "msiSysMetaModify: unknown system metadata or impossible to modify it: %s",
                                 ( char * ) sysMetadata->inOutStruct );
         }
+
+        if ( strcmp(dataObjInfo.rescHier,  "") ) {
+            addKeyVal( &regParam, IN_PDMO_KW, dataObjInfo.rescHier );
+        }
+
         modDataObjMetaInp.dataObjInfo = &dataObjInfo; // JMC - backport 4573
         modDataObjMetaInp.regParam = &regParam;
         rei->status = rsModDataObjMeta( rsComm, &modDataObjMetaInp );

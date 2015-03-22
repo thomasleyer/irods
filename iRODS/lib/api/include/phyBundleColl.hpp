@@ -11,13 +11,15 @@
 
 // =-=-=-=-=-=-=-
 // stl includes
+
+#ifdef __cplusplus
 #include <string>
+#endif
 
 #include "rods.hpp"
 #include "rcMisc.hpp"
 #include "procApiRequest.hpp"
 #include "apiNumber.hpp"
-#include "initServer.hpp"
 #include "structFileExtAndReg.hpp"
 #include "miscUtil.hpp"
 
@@ -66,9 +68,13 @@ remotePhyBundleColl( rsComm_t *rsComm,
 int
 _rsPhyBundleColl( rsComm_t *rsComm, structFileExtAndRegInp_t *phyBundleCollInp,
                   const char *_resc_name );
+
+#ifdef __cplusplus
 int
 createPhyBundleDataObj( rsComm_t *rsComm, char *collection, const std::string& _resc_name,
                         const char* rescHier, dataObjInp_t *dataObjInp, char *dataType ); // JMC - backport 4658
+#endif
+
 int
 createPhyBundleDir( rsComm_t *rsComm, char *bunFilePath,
                     char *outPhyBundleDir, char* hier );

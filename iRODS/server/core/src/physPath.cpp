@@ -6,10 +6,11 @@
 
 #include <unistd.h> // JMC - backport 4598
 #include <fcntl.h> // JMC - backport 4598
-#include "rodsDef.hpp"
+#include "rodsDef.h"
+#include "rodsConnect.h"
 #include "physPath.hpp"
 #include "dataObjOpr.hpp"
-#include "rodsDef.hpp"
+#include "rodsDef.h"
 #include "rsGlobalExtern.hpp"
 #include "fileChksum.hpp"
 #include "modDataObjMeta.hpp"
@@ -391,6 +392,7 @@ getSizeInVault( rsComm_t *rsComm, dataObjInfo_t *dataObjInfo ) {
     }
     else {
         if ( myStat->st_mode & S_IFDIR ) {
+            free( myStat );
             return ( rodsLong_t ) SYS_PATH_IS_NOT_A_FILE;
         }
         mysize = myStat->st_size;
@@ -1298,6 +1300,7 @@ getFileMetadataFromVault( rsComm_t *rsComm, dataObjInfo_t *dataObjInfo )
     if ( status ) {
         rodsLog( LOG_ERROR, "%s: could not retrieve username for uid %d",
                  fname, myStat->st_uid );
+        free( myStat );
         return status;
     }
     addKeyVal( &dataObjInfo->condInput, FILE_OWNER_KW, name_buf );
@@ -1306,6 +1309,7 @@ getFileMetadataFromVault( rsComm_t *rsComm, dataObjInfo_t *dataObjInfo )
     if ( status ) {
         rodsLog( LOG_ERROR, "%s: could not retrieve groupname for gid %d",
                  fname, myStat->st_gid );
+        free( myStat );
         return status;
     }
     addKeyVal( &dataObjInfo->condInput, FILE_GROUP_KW, name_buf );

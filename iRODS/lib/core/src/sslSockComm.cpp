@@ -86,10 +86,8 @@ sslStart( rcComm_t *rcComm ) {
         return SSL_CERT_ERROR;
     }
 
-    strncpy(
-        rcComm->negotiation_results,
-        irods::CS_NEG_USE_SSL.c_str(),
-        MAX_NAME_LEN );
+    snprintf( rcComm->negotiation_results, sizeof( rcComm->negotiation_results ),
+              "%s", irods::CS_NEG_USE_SSL.c_str() );
     return 0;
 }
 
@@ -132,10 +130,8 @@ sslEnd( rcComm_t *rcComm ) {
     rcComm->ssl_ctx = NULL;
     rcComm->ssl_on = 0;
 
-    strncpy(
-        rcComm->negotiation_results,
-        irods::CS_NEG_USE_TCP.c_str(),
-        MAX_NAME_LEN );
+    snprintf( rcComm->negotiation_results, sizeof( rcComm->negotiation_results ),
+              "%s", irods::CS_NEG_USE_TCP.c_str() );
     rodsLog( LOG_DEBUG, "sslShutdown: shut down SSL connection" );
 
 
@@ -178,10 +174,8 @@ sslAccept( rsComm_t *rsComm ) {
     }
 
     rsComm->ssl_on = 1;
-    strncpy(
-        rsComm->negotiation_results,
-        irods::CS_NEG_USE_SSL.c_str(),
-        MAX_NAME_LEN );
+    snprintf( rsComm->negotiation_results, sizeof( rsComm->negotiation_results ),
+              "%s", irods::CS_NEG_USE_SSL.c_str() );
 
     rodsLog( LOG_DEBUG, "sslAccept: accepted SSL connection" );
 
@@ -212,10 +206,8 @@ sslShutdown( rsComm_t *rsComm ) {
     rsComm->ssl_ctx = NULL;
     rsComm->ssl_on = 0;
 
-    strncpy(
-        rsComm->negotiation_results,
-        irods::CS_NEG_USE_TCP.c_str(),
-        MAX_NAME_LEN );
+    snprintf( rsComm->negotiation_results, sizeof( rsComm->negotiation_results ),
+              "%s", irods::CS_NEG_USE_TCP.c_str() );
     rodsLog( LOG_DEBUG, "sslShutdown: shut down SSL connection" );
 
     return 0;
@@ -419,6 +411,7 @@ sslWriteMsgHeader( msgHeader_t *myHeader, SSL *ssl ) {
         rodsLog( LOG_ERROR,
                  "sslWriteMsgHeader: wrote %d bytes for myLen , expect %d, status = %d",
                  nbytes, sizeof( myLen ), SYS_HEADER_WRITE_LEN_ERR - errno );
+        freeBBuf( headerBBuf );
         return SYS_HEADER_WRITE_LEN_ERR - errno;
     }
 
@@ -451,26 +444,9 @@ sslSendRodsMsg( char *msgType, bytesBuf_t *msgBBuf,
 
     rstrcpy( msgHeader.type, msgType, HEADER_TYPE_LEN );
 
-    if ( msgBBuf == NULL ) {
-        msgHeader.msgLen = 0;
-    }
-    else {
-        msgHeader.msgLen = msgBBuf->len;
-    }
-
-    if ( byteStreamBBuf == NULL ) {
-        msgHeader.bsLen = 0;
-    }
-    else {
-        msgHeader.bsLen = byteStreamBBuf->len;
-    }
-
-    if ( errorBBuf == NULL ) {
-        msgHeader.errorLen = 0;
-    }
-    else {
-        msgHeader.errorLen = errorBBuf->len;
-    }
+    msgHeader.msgLen = msgBBuf ? msgBBuf->len : 0;
+    msgHeader.bsLen = byteStreamBBuf ? byteStreamBBuf->len : 0;
+    msgHeader.errorLen = errorBBuf ? errorBBuf->len : 0;
 
     msgHeader.intInfo = intInfo;
 
@@ -482,7 +458,7 @@ sslSendRodsMsg( char *msgType, bytesBuf_t *msgBBuf,
 
     /* send the rest */
 
-    if ( msgHeader.msgLen > 0 ) {
+    if ( msgBBuf && msgBBuf->len > 0 ) {
         if ( irodsProt == XML_PROT && getRodsLogLevel() >= LOG_DEBUG3 ) {
             printf( "sending msg: \n%s\n", ( char * ) msgBBuf->buf );
         }
@@ -492,7 +468,7 @@ sslSendRodsMsg( char *msgType, bytesBuf_t *msgBBuf,
         }
     }
 
-    if ( msgHeader.errorLen > 0 ) {
+    if ( errorBBuf && errorBBuf->len > 0 ) {
         if ( irodsProt == XML_PROT && getRodsLogLevel() >= LOG_DEBUG3 ) {
             printf( "sending error msg: \n%s\n", ( char * ) errorBBuf->buf );
         }
@@ -502,7 +478,7 @@ sslSendRodsMsg( char *msgType, bytesBuf_t *msgBBuf,
             return status;
         }
     }
-    if ( msgHeader.bsLen > 0 ) {
+    if ( byteStreamBBuf && byteStreamBBuf->len > 0 ) {
         status = sslWrite( byteStreamBBuf->buf, byteStreamBBuf->len,
                            &bytesWritten, ssl );
         if ( status < 0 ) {
@@ -631,8 +607,7 @@ sslInit( char *certfile, char *keyfile ) {
 
     ctx = SSL_CTX_new( SSLv23_method() );
 
-    /* no SSLv2 */
-    SSL_CTX_set_options( ctx, SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_SINGLE_DH_USE );
+    SSL_CTX_set_options( ctx, SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_SINGLE_DH_USE );
 
     /* load our keys and certificates if provided */
     if ( certfile ) {

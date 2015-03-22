@@ -9,11 +9,9 @@
 #include "filesystem.hpp"
 #include "irods_get_full_path_for_config_file.hpp"
 #include "irods_log.hpp"
+#include "rodsConnect.h"
 
 char *getRuleBasePath( char *ruleBaseName, char rulesFileName[MAX_NAME_LEN] ) {
-    //char *configDir = getConfigDir();
-    //snprintf( rulesFileName, MAX_NAME_LEN, "%s/reConfigs/%s.re", configDir, ruleBaseName );
-
     std::string cfg_file, fn( ruleBaseName );
     fn += ".re";
     irods::error ret = irods::get_full_path_for_config_file( fn, cfg_file );

@@ -536,7 +536,7 @@ showGlobalQuotas( char *inputUserOrGroup ) {
         }
         status = parseUserName( inputUserOrGroup, userName, zoneName );
         if ( zoneName[0] == '\0' ) {
-            strncpy( zoneName, localZone, sizeof zoneName );
+            snprintf( zoneName, sizeof( zoneName ), "%s", localZone );
         }
         simpleQueryInp.form = 2;
         simpleQueryInp.sql =
@@ -577,7 +577,7 @@ showResourceQuotas( char *inputUserOrGroup ) {
         }
         status = parseUserName( inputUserOrGroup, userName, zoneName );
         if ( zoneName[0] == '\0' ) {
-            strncpy( zoneName, localZone, sizeof zoneName );
+            snprintf( zoneName, sizeof( zoneName ), "%s", localZone );
         }
         simpleQueryInp.form = 2;
         simpleQueryInp.sql = "select user_name, R_USER_MAIN.zone_name, resc_name, quota_limit, quota_over, R_QUOTA_MAIN.modify_ts from R_QUOTA_MAIN, R_USER_MAIN, R_RESC_MAIN where R_USER_MAIN.user_id = R_QUOTA_MAIN.user_id and R_RESC_MAIN.resc_id = R_QUOTA_MAIN.resc_id and user_name=? and R_USER_MAIN.zone_name=?";
@@ -631,7 +631,7 @@ generalAdmin( int userOption, char *arg0, char *arg1, char *arg2, char *arg3,
         userAdminInp.arg6 = arg6;
         userAdminInp.arg7 = arg7;
         userAdminInp.arg8 = arg8;
-        userAdminInp.arg9 = arg8;
+        userAdminInp.arg9 = arg9;
         status = rcUserAdmin( Conn, &userAdminInp );
         funcName = "rcGeneralAdmin and rcUserAdmin";
     }
@@ -1343,6 +1343,9 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
 
 int
 main( int argc, char **argv ) {
+
+    signal( SIGPIPE, SIG_IGN );
+
     int status, i, j;
     rErrMsg_t errMsg;
 

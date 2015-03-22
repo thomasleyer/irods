@@ -6,6 +6,7 @@ SCRIPTNAME=`basename $0`
 SCRIPTPATH=$( cd $(dirname $0) ; pwd -P )
 FULLPATHSCRIPTNAME=$SCRIPTPATH/$SCRIPTNAME
 COVERAGE="0"
+CPUJOBS=""
 RELEASE="0"
 BUILDIRODS="1"
 PORTABLE="0"
@@ -82,6 +83,7 @@ do
     case "$arg" in
         --coverage) args="${args}-c ";;
         --help) args="${args}-h ";;
+        --jobs) args="${args}-j ";;
         --release) args="${args}-r ";;
         --skip) args="${args}-s ";;
         --portable) args="${args}-p ";;
@@ -94,7 +96,7 @@ done
 # reset the translated args
 eval set -- $args
 # now we can process with getopts
-while getopts ":chrspz" opt; do
+while getopts ":chj:rspz" opt; do
     case $opt in
         c)
         COVERAGE="1"
@@ -107,6 +109,10 @@ while getopts ":chrspz" opt; do
         ;;
         h)
         echo "$USAGE"
+        ;;
+        j)
+        CPUJOBS="$OPTARG"
+        echo "-j detected -- Building with $CPUJOBS make jobs"
         ;;
         r)
         RELEASE="1"
@@ -131,6 +137,14 @@ while getopts ":chrspz" opt; do
 done
 echo ""
 
+# detect lack of submodules, and exit
+if [ ! -e irods_schema_configuration/v1 -o ! -e irods_schema_messaging/v1 ] ; then
+    echo "${text_red}#######################################################" 1>&2
+    echo "ERROR :: Missing Submodules... Try:" 1>&2
+    echo "      git submodule init; git submodule update" 1>&2
+    echo "#######################################################${text_reset}" 1>&2
+    exit 1
+fi
 # detect illogical combinations, and exit
 if [ "$BUILDIRODS" == "0" -a "$RELEASE" == "1" ] ; then
     echo "${text_red}#######################################################" 1>&2
@@ -249,12 +263,20 @@ reset_ownership_in_dir() {
 # find number of cpus
 detect_number_of_cpus_and_set_makejcmd() {
     DETECTEDCPUCOUNT=`$BUILDDIR/packaging/get_cpu_count.sh`
-    CPUCOUNT=$(( $DETECTEDCPUCOUNT + 3 ))
+    if [ "$CPUJOBS" != "" ] ; then
+        CPUCOUNT=$CPUJOBS
+    else
+        CPUCOUNT=$(( $DETECTEDCPUCOUNT + 3 ))
+    fi
     MAKEJCMD="make -j $CPUCOUNT"
 
-    # print out detected CPU information
+    # print out CPU information
     echo "${text_cyan}${text_bold}-------------------------------------"
-    echo "Detected CPUs:    $DETECTEDCPUCOUNT"
+    if [ "$CPUJOBS" != "" ] ; then
+        echo "Requested CPUs:   $CPUJOBS"
+    else
+        echo "Detected CPUs:    $DETECTEDCPUCOUNT"
+    fi
     echo "Compiling with:   $MAKEJCMD"
     echo "-------------------------------------${text_reset}"
     sleep 1

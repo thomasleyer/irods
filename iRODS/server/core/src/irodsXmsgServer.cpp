@@ -7,6 +7,7 @@
 #include "irodsXmsgServer.hpp"
 #include "xmsgLib.hpp"
 #include "rsGlobal.hpp"
+#include "initServer.hpp"
 #include "miscServerFunct.hpp"
 #include "irods_server_properties.hpp"
 #include "readServerConfig.hpp"
@@ -18,6 +19,16 @@
 int loopCnt = -1; /* make it -1 to run infinitely */
 
 
+int getAgentProcCnt() {
+    return 0;
+}
+
+int getAgentProcPIDs(
+    std::vector<int>& _pids ) {
+    _pids.clear();
+    return 0;
+}
+
 int
 main( int argc, char **argv ) {
     int c;
@@ -26,7 +37,6 @@ main( int argc, char **argv ) {
     char *logDir = NULL;
     char *tmpStr;
     int logFd;
-    bool run_server_as_root = false;
 
     ProcessType = XMSG_SERVER_PT;
 
@@ -36,25 +46,12 @@ main( int argc, char **argv ) {
         irods::log( PASSMSG( "failed to read server configuration", result ) );
     }
 
-
-    irods::server_properties::getInstance().get_property<bool>( RUN_SERVER_AS_ROOT_KW, run_server_as_root );
-
-#ifndef windows_platform
-    if ( run_server_as_root ) {
-        if ( initServiceUser() < 0 ) {
-            exit( 1 );
-        }
-    }
-#endif
-
-
 #ifndef _WIN32
     signal( SIGINT, signalExit );
     signal( SIGHUP, signalExit );
     signal( SIGTERM, signalExit );
     signal( SIGUSR1, signalExit );
-    signal( SIGPIPE, rsPipSigalHandler );
-
+    signal( SIGPIPE, rsPipeSignalHandler );
 #endif
 
     /* Handle option to log sql commands */
@@ -124,7 +121,7 @@ xmsgServerMain() {
     int status = 0;
     rsComm_t rsComm;
     rsComm_t svrComm;	/* rsComm is connection to icat, svrComm is the
-			 * server's listening socket */
+                         * server's listening socket */
     fd_set sockMask;
     int numSock;
 
@@ -191,7 +188,8 @@ xmsgServerMain() {
     else {
         // =-=-=-=-=-=-=-
         // copy negotiation results to comm for action by network objects
-        strncpy( rsComm.negotiation_results, neg_results.c_str(), MAX_NAME_LEN );
+        snprintf( rsComm.negotiation_results, sizeof( rsComm.negotiation_results ),
+                  "%s", neg_results.c_str() );
         //rsComm.ssl_do_accept = 1;
 
     }

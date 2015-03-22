@@ -105,9 +105,9 @@ fillBBufWithFile( rcComm_t *conn, bytesBuf_t *myBBuf, char *locFilePath,
     in_fd = open( locFilePath, O_RDONLY, 0 );
 #endif
     if ( in_fd < 0 ) { /* error */
-        status = USER_FILE_DOES_NOT_EXIST - errno;
+        status = UNIX_FILE_OPEN_ERR - errno;
         rodsLogError( LOG_ERROR, status,
-                      "cannot open file %s, status = %d", locFilePath, status );
+                      "cannot open file %s", locFilePath, status );
         return status;
     }
 
@@ -175,9 +175,9 @@ putFileToPortal( rcComm_t *conn, portalOprOut_t *portalOprOut,
         in_fd = open( locFilePath, O_RDONLY, 0 );
 #endif
         if ( in_fd < 0 ) { /* error */
-            retVal = USER_FILE_DOES_NOT_EXIST - errno;
+            retVal = UNIX_FILE_OPEN_ERR - errno;
             rodsLogError( LOG_ERROR, retVal,
-                          "cannot open file %s, status = %d", locFilePath, retVal );
+                          "cannot open file %s", locFilePath, retVal );
             return retVal;
         }
 
@@ -210,9 +210,9 @@ putFileToPortal( rcComm_t *conn, portalOprOut_t *portalOprOut,
             }
             in_fd = open( locFilePath, O_RDONLY, 0 );
             if ( in_fd < 0 ) { 	/* error */
-                retVal = USER_FILE_DOES_NOT_EXIST - errno;
+                retVal = UNIX_FILE_OPEN_ERR - errno;
                 rodsLogError( LOG_ERROR, retVal,
-                              "cannot open file %s, status = %d", locFilePath, retVal );
+                              "cannot open file %s", locFilePath, retVal );
                 continue;
             }
             fillRcPortalTransferInp( conn, &myInput[i], sock, in_fd, i );
@@ -542,9 +542,9 @@ putFile( rcComm_t *conn, int l1descInx, char *locFilePath, char *objPath,
     in_fd = open( locFilePath, O_RDONLY, 0 );
 #endif
     if ( in_fd < 0 ) { /* error */
-        status = USER_FILE_DOES_NOT_EXIST - errno;
+        status = UNIX_FILE_OPEN_ERR - errno;
         rodsLogError( LOG_ERROR, status,
-                      "cannot open file %s, status = %d", locFilePath, status );
+                      "cannot open file %s", locFilePath, status );
         return status;
     }
 
@@ -647,9 +647,9 @@ getIncludeFile( rcComm_t *conn, bytesBuf_t *dataObjOutBBuf, char *locFilePath ) 
         out_fd = open( locFilePath, O_WRONLY | O_CREAT | O_TRUNC, 0640 );
 #endif
         if ( out_fd < 0 ) { /* error */
-            status = USER_FILE_DOES_NOT_EXIST - errno;
+            status = UNIX_FILE_OPEN_ERR - errno;
             rodsLogError( LOG_ERROR, status,
-                          "cannot open file %s, status = %d", locFilePath, status );
+                          "cannot open file %s", locFilePath, status );
             return status;
         }
 
@@ -700,9 +700,9 @@ getFile( rcComm_t *conn, int l1descInx, char *locFilePath, char *objPath,
     }
 
     if ( out_fd < 0 ) { /* error */
-        status = USER_FILE_DOES_NOT_EXIST - errno;
+        status = UNIX_FILE_OPEN_ERR - errno;
         rodsLogError( LOG_ERROR, status,
-                      "cannot open file %s, status = %d", locFilePath, status );
+                      "cannot open file %s", locFilePath, status );
         return status;
     }
 
@@ -850,9 +850,9 @@ getFileFromPortal( rcComm_t *conn, portalOprOut_t *portalOprOut,
         out_fd = open( locFilePath, O_WRONLY | O_CREAT | O_TRUNC, 0640 );
 #endif
         if ( out_fd < 0 ) { /* error */
-            retVal = USER_FILE_DOES_NOT_EXIST - errno;
+            retVal = UNIX_FILE_OPEN_ERR - errno;
             rodsLogError( LOG_ERROR, retVal,
-                          "cannot open file %s, status = %d", locFilePath, retVal );
+                          "cannot open file %s", locFilePath, retVal );
             return retVal;
         }
         fillRcPortalTransferInp( conn, &myInput[0], out_fd, sock, 0640 );
@@ -888,9 +888,9 @@ getFileFromPortal( rcComm_t *conn, portalOprOut_t *portalOprOut,
                 out_fd = open( locFilePath, O_WRONLY, 0640 );
             }
             if ( out_fd < 0 ) {  /* error */
-                retVal = USER_FILE_DOES_NOT_EXIST - errno;
+                retVal = UNIX_FILE_OPEN_ERR - errno;
                 rodsLogError( LOG_ERROR, retVal,
-                              "cannot open file %s, status = %d", locFilePath, retVal );
+                              "cannot open file %s", locFilePath, retVal );
                 CLOSE_SOCK( sock );
                 continue;
             }
@@ -1417,16 +1417,11 @@ writeLfRestartFile( char *infoFile, fileRestartInfo_t *info ) {
 
     status =  packStruct( ( void * ) info, &packedBBuf,
                           "FileRestartInfo_PI", RodsPackTable, 0, XML_PROT );
-    if ( status < 0 ) {
+    if ( status < 0 || packedBBuf == NULL ) {
         rodsLog( LOG_ERROR,
                  "writeLfRestartFile: packStruct error for %s, status = %d",
                  info->fileName, status );
-        return status;
-    }
-    if ( packedBBuf == NULL ) {
-        rodsLog( LOG_ERROR,
-                 "writeLfRestartFile: packStruct error for %s, status = %d",
-                 info->fileName, status );
+        freeBBuf( packedBBuf );
         return status;
     }
 
@@ -1437,16 +1432,14 @@ writeLfRestartFile( char *infoFile, fileRestartInfo_t *info ) {
         rodsLog( LOG_ERROR,
                  "writeLfRestartFile: open failed for %s, status = %d",
                  infoFile, status );
+        freeBBuf( packedBBuf );
         return status;
     }
 
     status = write( fd, packedBBuf->buf, packedBBuf->len );
     close( fd );
 
-    //if (packedBBuf != NULL) { // JMC cppcheck - redundant nullptr test
-    clearBBuf( packedBBuf );
-    free( packedBBuf );
-    //}
+    freeBBuf( packedBBuf );
     if ( status < 0 ) {
         status = UNIX_FILE_WRITE_ERR - errno;
         rodsLog( LOG_ERROR,
@@ -1545,9 +1538,9 @@ lfRestartPutWithInfo( rcComm_t *conn, fileRestartInfo_t *info ) {
     localFd = open( info->fileName, O_RDONLY, 0 );
 #endif
     if ( localFd < 0 ) { /* error */
-        status = USER_FILE_DOES_NOT_EXIST - errno;
+        status = UNIX_FILE_OPEN_ERR - errno;
         rodsLogError( LOG_ERROR, status,
-                      "cannot open file %s, status = %d", info->fileName, status );
+                      "cannot open file %s", info->fileName, status );
         return status;
     }
 
@@ -1705,7 +1698,7 @@ lfRestartGetWithInfo( rcComm_t *conn, fileRestartInfo_t *info ) {
     localFd = open( info->fileName, O_RDWR, 0 );
 #endif
     if ( localFd < 0 ) { /* error */
-        status = USER_FILE_DOES_NOT_EXIST - errno;
+        status = UNIX_FILE_OPEN_ERR - errno;
         rodsLogError( LOG_ERROR, status,
                       "cannot open local file %s, status = %d", info->fileName, status );
         return status;

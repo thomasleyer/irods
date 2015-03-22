@@ -79,7 +79,7 @@ int msiXmsgServerConnect( msParam_t* outConnParam, ruleExecInfo_t *rei ) {
     }
 
     outConnParam->inOutStruct = ( void * ) conn;
-    outConnParam->type = ( char * ) strdup( "RcComm_MS_T" );
+    outConnParam->type = strdup( "RcComm_MS_T" );
 
     return 0;
 
@@ -150,11 +150,12 @@ int msiXmsgCreateStream( msParam_t* inConnParam,
     status = rcGetXmsgTicket( conn, getXmsgTicketInp, &outXmsgTicketInfo );
     if ( status != 0 ) {
         rodsLog( LOG_ERROR, "msiXmsgCreateStream: rcGetXmsgTicket failed:%i", status );
+        free( getXmsgTicketInp );
         return status;
     }
 
     outXmsgTicketInfoParam->inOutStruct = ( void * ) outXmsgTicketInfo;
-    outXmsgTicketInfoParam->type = ( char * ) strdup( XmsgTicketInfo_MS_T );
+    outXmsgTicketInfoParam->type = strdup( XmsgTicketInfo_MS_T );
     if ( allocFlag == 1 ) {
         free( getXmsgTicketInp );
     }
@@ -264,7 +265,7 @@ int msiCreateXmsgInp( msParam_t* inMsgNumber,
     sendXmsgInp->sendXmsgInfo.miscInfo = strdup( ( char * ) inMiscInfo->inOutStruct );
 
     outSendXmsgInpParam->inOutStruct = ( void * ) sendXmsgInp;
-    outSendXmsgInpParam->type = ( char * ) strdup( SendXmsgInp_MS_T );
+    outSendXmsgInpParam->type = strdup( SendXmsgInp_MS_T );
     return 0;
 
 

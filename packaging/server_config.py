@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import time
 
 
@@ -144,6 +145,8 @@ class ServerConfig(object):
 
     def exec_mysql_file(self, sql_filename):
         fbp = os.path.dirname(os.path.realpath(__file__)) + '/find_bin_mysql.sh'
+        if not os.path.isfile(fbp):
+            fbp = get_install_dir() + '/plugins/database/packaging/find_bin_mysql.sh'
         p = subprocess.Popen(fbp, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = p.communicate()
         if p.returncode != 0:
@@ -154,10 +157,22 @@ class ServerConfig(object):
         db_name = self.get('Database')
         db_user = self.get('DBUsername')
         db_pass = self.get_db_password()
-        run_str = '{sqlclient} -h {db_host} -u {db_user} --password={db_pass} -P {db_port} {db_name} < {sql_filename}'.format(
-            **vars())
-        p = subprocess.Popen(run_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        myout, myerr = p.communicate()
+
+        with tempfile.NamedTemporaryFile() as f:
+            cnf_file_contents = """
+[client]
+user={db_user}
+password={db_pass}
+host={db_host}
+port={db_port}
+""".format(**vars())
+            f.write(cnf_file_contents)
+            f.flush()
+
+            run_str = '{sqlclient} --defaults-file={defaults_file} {db_name} < {sql_filename}'.format(
+                defaults_file=f.name, **vars())
+            p = subprocess.Popen(run_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            myout, myerr = p.communicate()
         return (p.returncode, myout, myerr)
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -177,6 +192,8 @@ class ServerConfig(object):
 
     def exec_oracle_file(self, sql_filename):
         fbp = os.path.dirname(os.path.realpath(__file__)) + '/find_bin_oracle.sh'
+        if not os.path.isfile(fbp):
+            fbp = get_install_dir() + '/plugins/database/packaging/find_bin_oracle.sh'
         p = subprocess.Popen(fbp, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = p.communicate()
         if p.returncode != 0:

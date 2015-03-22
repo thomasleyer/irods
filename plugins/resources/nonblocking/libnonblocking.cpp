@@ -368,6 +368,7 @@ extern "C" {
                     // make call to umask & open for create
                     mode_t myMask = umask( ( mode_t ) 0000 );
                     int    fd     = open( fco->physical_path().c_str(), O_RDWR | O_CREAT | O_EXCL, fco->mode() );
+                    int errsav = errno;
 
                     // =-=-=-=-=-=-=-
                     // reset the old mask
@@ -380,6 +381,7 @@ extern "C" {
                         close( fd );
                         int null_fd = open( "/dev/null", O_RDWR, 0 );
                         fd = open( fco->physical_path().c_str(), O_RDWR | O_CREAT | O_EXCL, fco->mode() );
+                        errsav = errno;
                         if ( null_fd >= 0 ) {
                             close( null_fd );
                         }
@@ -387,25 +389,26 @@ extern "C" {
                     }
 
                     // =-=-=-=-=-=-=-
-                    // cache file descriptor in out-variable
-                    fco->file_descriptor( fd );
-
-                    // =-=-=-=-=-=-=-
                     // trap error case with bad fd
                     if ( fd < 0 ) {
-                        int status = UNIX_FILE_CREATE_ERR - errno;
-                        if ( !( result = ASSERT_ERROR( fd >= 0, UNIX_FILE_CREATE_ERR - errno, "create error for \"%s\", errno = \"%s\", status = %d",
-                                                       fco->physical_path().c_str(), strerror( errno ), status ) ).ok() ) {
-
-                            // =-=-=-=-=-=-=-
-                            // WARNING :: Major Assumptions are made upstream and use the FD also as a
-                            //         :: Status, if this is not done EVERYTHING BREAKS!!!!111one
-                            fco->file_descriptor( status );
-                            result.code( status );
-                        }
-                        else {
-                            result.code( fd );
-                        }
+                        int status = UNIX_FILE_CREATE_ERR - errsav;
+                        std::stringstream msg;
+                        msg << "create error for \"";
+                        msg << fco->physical_path();
+                        msg << "\", errno = \"";
+                        msg << strerror( errsav );
+                        msg << "\".";
+                        // =-=-=-=-=-=-=-
+                        // WARNING :: Major Assumptions are made upstream and use the FD also as a
+                        //         :: Status, if this is not done EVERYTHING BREAKS!!!!111one
+                        fco->file_descriptor( status );
+                        result = ERROR( status, msg.str() );
+                    }
+                    else {
+                        // =-=-=-=-=-=-=-
+                        // cache file descriptor in out-variable
+                        fco->file_descriptor( fd );
+                        result.code( fd );
                     }
                 }
             }
@@ -446,6 +449,7 @@ extern "C" {
             // make call to open
             errno = 0;
             int fd = open( fco->physical_path().c_str(), flags, fco->mode() );
+            int errsav = errno;
 
             // =-=-=-=-=-=-=-
             // if we got a 0 descriptor, try again
@@ -453,6 +457,7 @@ extern "C" {
                 close( fd );
                 int null_fd = open( "/dev/null", O_RDWR, 0 );
                 fd = open( fco->physical_path().c_str(), flags, fco->mode() );
+                errsav = errno;
                 if ( null_fd >= 0 ) {
                     close( null_fd );
                 }
@@ -465,10 +470,19 @@ extern "C" {
 
             // =-=-=-=-=-=-=-
             // did we still get an error?
-            int status = UNIX_FILE_OPEN_ERR - errno;
-            if ( !( result = ASSERT_ERROR( fd >= 0, status, "Open error for \"%s\", errno = \"%s\", status = %d, flags = %d.",
-                                           fco->physical_path().c_str(), strerror( errno ), status, flags ) ).ok() ) {
-                result.code( status );
+            int status = UNIX_FILE_OPEN_ERR - errsav;
+            if ( fd < 0 ) {
+                std::stringstream msg;
+                msg << "Open error for \"";
+                msg << fco->physical_path();
+                msg << "\", errno = \"";
+                msg << strerror( errsav );
+                msg << "\", status = ";
+                msg << status;
+                msg << ", flags = ";
+                msg << flags;
+                msg << ".";
+                result = ERROR( status, msg.str() );
             }
             else {
                 result.code( fd );
@@ -731,7 +745,6 @@ extern "C" {
         irods::resource_plugin_context& _ctx,
         struct stat*                        _statbuf ) {
         irods::error result = SUCCESS();
-        bool run_server_as_root = false;
 
         // =-=-=-=-=-=-=-
         // NOTE:: this function assumes the object's physical path is
@@ -748,19 +761,6 @@ extern "C" {
             // =-=-=-=-=-=-=-
             // make the call to stat
             int status = stat( fco->physical_path().c_str(), _statbuf );
-
-            // =-=-=-=-=-=-=-
-            // if the file can't be accessed due to permission denied
-            // try again using root credentials.
-            irods::server_properties::getInstance().get_property<bool>( RUN_SERVER_AS_ROOT_KW, run_server_as_root );
-            if ( run_server_as_root ) {
-                if ( status < 0 && errno == EACCES && isServiceUserSet() ) {
-                    if ( changeToRootUser() == 0 ) {
-                        status = stat( fco->physical_path().c_str(), _statbuf );
-                        changeToServiceUser();
-                    }
-                }
-            }
 
             // =-=-=-=-=-=-=-
             // return an error if necessary
@@ -883,7 +883,6 @@ extern "C" {
     irods::error non_blocking_file_opendir_plugin(
         irods::resource_plugin_context& _ctx ) {
         irods::error result = SUCCESS();
-        bool run_server_as_root = false;
 
         // =-=-=-=-=-=-=-
         // Check the operation parameters and update the physical path
@@ -895,21 +894,8 @@ extern "C" {
             irods::collection_object_ptr fco = boost::dynamic_pointer_cast< irods::collection_object >( _ctx.fco() );
 
             // =-=-=-=-=-=-=-
-            // make the callt to opendir
+            // make the call to opendir
             DIR* dir_ptr = opendir( fco->physical_path().c_str() );
-
-            // =-=-=-=-=-=-=-
-            // if the directory can't be accessed due to permission
-            // denied try again using root credentials.
-            irods::server_properties::getInstance().get_property<bool>( RUN_SERVER_AS_ROOT_KW, run_server_as_root );
-            if ( run_server_as_root ) {
-                if ( dir_ptr == NULL && errno == EACCES && isServiceUserSet() ) {
-                    if ( changeToRootUser() == 0 ) {
-                        dir_ptr = opendir( fco->physical_path().c_str() );
-                        changeToServiceUser();
-                    } // if
-                }
-            }
 
             // =-=-=-=-=-=-=-
             // cache status in out variable
@@ -917,11 +903,21 @@ extern "C" {
 
             // =-=-=-=-=-=-=-
             // return an error if necessary
-            if ( ( result = ASSERT_ERROR( NULL != dir_ptr, err_status, "Opendir error for \"%s\", errno = \"%s\", status = %d.",
-                                          fco->physical_path().c_str(), strerror( errno ), err_status ) ).ok() ) {
+            if ( NULL != dir_ptr ) {
                 // =-=-=-=-=-=-=-
-                // cache dir_ptr & status in out variables
+                // cache dir_ptr in out variables
                 fco->directory_pointer( dir_ptr );
+            }
+            else {
+                std::stringstream msg;
+                msg << "Opendir error for \"";
+                msg << fco->physical_path();
+                msg << "\", errno = \"";
+                msg << strerror( errno );
+                msg << "\", status = ";
+                msg << err_status;
+                msg << ".";
+                result = ERROR( err_status, msg.str() );
             }
         }
 

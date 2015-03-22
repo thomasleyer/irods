@@ -282,7 +282,7 @@ acPostProcForRepl { }
 # acSetNumThreads {msiSetNumThreads("16","4","default"); }
 # acSetNumThreads {msiSetNumThreads("default","16","default"); }
 # acSetNumThreads {ON($rescName == "macResc") {msiSetNumThreads("default","0","default"); } }
-acSetNumThreads {msiSetNumThreads("default","16","default"); }
+acSetNumThreads {msiSetNumThreads("default","64","default"); }
 # 10) acDataDeletePolicy - This rule set the policy for deleting data objects.
 #     This is the PreProcessing rule for delete.
 # Only one function can be called:
@@ -381,7 +381,7 @@ acSetVaultPathPolicy {msiSetGraftPathScheme("no","1"); }
 #
 # 17) acSetReServerNumProc - This rule set the policy for the number of processes
 # to use when running jobs in the irodsReServer. The irodsReServer can now
-# muli-task such that one or two long running jobs cannot block the execution
+# multi-task such that one or two long running jobs cannot block the execution
 # of other jobs. One function can be called:
 #    msiSetReServerNumProc(numProc) - numProc can be "default" or a number
 #    in the range 1-4. numProc will be set to 1 if "default" is the input.
@@ -549,18 +549,6 @@ acPreProcForModifyResource(*ResourceName,*Option,*NewValue) { }
 #
 acPostProcForModifyResource(*ResourceName,*Option,*NewValue) { }
 #
-# 40) acPreProcForModifyResourceGroup - This rule set the pre-processing policy for
-# modifying membership of a resource group.
-# Option specifies the modifying-action being performed by the administraor
-#
-acPreProcForModifyResourceGroup(*ResourceGroupName,*Option,*ResourceName) { }
-#
-# 41) acPostProcForModifyResourceGroup - This rule set the post-processing policy for
-# modifying membership of a resource group.
-# Option specifies the modifying-action being performed by the administraor
-#
-acPostProcForModifyResourceGroup(*ResourceGroupName,*Option,*ResourceName) { }
-#
 # 42) acPreProcForModifyCollMeta - This rule set the pre-processing policy for
 # modifying system metadata of a collection.
 #
@@ -654,7 +642,7 @@ acPostProcForGenQuery(*genQueryInpStr,*genQueryOutStr,*genQueryStatusStr) { }
 #      Quota should be enforced. Valid values for the flag are:
 #      "on"  - enable Resource Quota enforcement,
 #      "off" - disable Resource Quota enforcement (default).
-# acRescQuotaPolicy {msiSetRescQuotaPolicy("off"); }
+# acRescQuotaPolicy {msiSetRescQuotaPolicy("on"); }
 acRescQuotaPolicy {msiSetRescQuotaPolicy("off"); }
 #
 #

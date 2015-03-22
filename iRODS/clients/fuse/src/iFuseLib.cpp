@@ -207,38 +207,32 @@ dataObjCreateByFusePath( rcComm_t *conn, int mode,
 }
 
 int
-renmeLocalPath( PathCacheTable *pctable, char *from, char *to, char *toIrodsPath ) {
-    pathCache_t *fromPathCache = NULL;
-    pathCache_t *tmpPathCache = NULL;
+renameLocalPath( PathCacheTable *pctable, char *from, char *to, char *toIrodsPath ) {
 
     /* do not check existing path here as path cache may be out of date */
-    matchAndLockPathCache( pctable, from, &fromPathCache );
-    if ( fromPathCache == NULL ) {
+    pathCache_t *fromPathCache = matchPathCache( pctable, from );
+    if ( NULL == fromPathCache ) {
         return 0;
     }
+    LOCK_STRUCT( *fromPathCache );
 
-    LOCK( *pctable -> PathCacheLock );
     if ( fromPathCache->fileCache != NULL ) {
         LOCK_STRUCT( *( fromPathCache->fileCache ) );
         free( fromPathCache->fileCache->localPath );
         fromPathCache->fileCache->localPath = strdup( to );
         free( fromPathCache->fileCache->objPath );
         fromPathCache->fileCache->objPath = strdup( toIrodsPath );
-
-        _pathReplace( pctable, ( char * ) to, fromPathCache->fileCache, &fromPathCache->stbuf, &tmpPathCache );
-
         UNLOCK_STRUCT( *( fromPathCache->fileCache ) );
     }
-    else {
-        _pathReplace( pctable, ( char * ) to, NULL /* fromPathCache->fileCache */, &fromPathCache->stbuf, &tmpPathCache );
 
-    }
+    pathCache_t *tmpPathCache = NULL;
+    LOCK( *pctable -> PathCacheLock );
+    pathReplace( pctable, ( char * ) to, fromPathCache->fileCache, &fromPathCache->stbuf, &tmpPathCache );
 
-    /* need to unlock fileCache here since the following function call ness to lock fileCache */
-    _pathNotExist( pctable, ( char * ) from );
+    pathNotExist( pctable, ( char * ) from );
 
-    UNLOCK_STRUCT( *fromPathCache );
     UNLOCK( *pctable -> PathCacheLock );
+    UNLOCK_STRUCT( *fromPathCache );
     return 0;
 }
 

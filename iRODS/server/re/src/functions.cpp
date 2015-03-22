@@ -782,6 +782,7 @@ Res *smsi_query( Node** subtrees, int, Node* node, ruleExecInfo_t* rei, int reiS
             if ( column_inx < 0 ) {
                 snprintf( errmsgBuf, ERR_MSG_LEN, "Unable to get valid ICAT column index for %s.", subQueNode->subtrees[0]->text );
                 generateAndAddErrMsg( errmsgBuf, subQueNode->subtrees[0], RE_DYNAMIC_TYPE_ERROR, errmsg );
+                deleteHashTable( queCondHashTable, nop );
                 return newErrorRes( r, RE_DYNAMIC_TYPE_ERROR );
             }
 
@@ -807,6 +808,7 @@ Res *smsi_query( Node** subtrees, int, Node* node, ruleExecInfo_t* rei, int reiS
             if ( att_inx < 0 ) {
                 snprintf( errmsgBuf, ERR_MSG_LEN, "Unable to get valid ICAT column index for %s.", subQueNode->subtrees[0]->text );
                 generateAndAddErrMsg( errmsgBuf, subQueNode->subtrees[0], RE_DYNAMIC_TYPE_ERROR, errmsg );
+                deleteHashTable( queCondHashTable, nop );
                 return newErrorRes( r, RE_DYNAMIC_TYPE_ERROR );
             }
 
@@ -820,11 +822,13 @@ Res *smsi_query( Node** subtrees, int, Node* node, ruleExecInfo_t* rei, int reiS
                 /* Make the condition */
                 res0 = evaluateExpression3( node->subtrees[0], 0, 0, rei, reiSaveFlag, env, errmsg, r );
                 if ( getNodeType( res0 ) == N_ERROR ) {
+                    deleteHashTable( queCondHashTable, nop );
                     return res0;
                 }
                 nodeType0 = ( NodeType ) TYPE( res0 );
                 if ( nodeType0 != T_DOUBLE && nodeType0 != T_INT && nodeType0 != T_STRING ) {
                     generateAndAddErrMsg( "dynamic type error", node->subtrees[0], RE_DYNAMIC_TYPE_ERROR, errmsg );
+                    deleteHashTable( queCondHashTable, nop );
                     return newErrorRes( r, RE_DYNAMIC_TYPE_ERROR );
                 }
                 value0 = convertResToString( res0 );
@@ -840,11 +844,13 @@ Res *smsi_query( Node** subtrees, int, Node* node, ruleExecInfo_t* rei, int reiS
                 if ( strcmp( node->text, "between" ) == 0 ) {
                     res1 = evaluateExpression3( node->subtrees[1], 0, 0, rei, reiSaveFlag, env, errmsg, r );
                     if ( getNodeType( res1 ) == N_ERROR ) {
+                        deleteHashTable( queCondHashTable, nop );
                         return res1;
                     }
                     nodeType1 = ( NodeType ) TYPE( res1 );
                     if ( ( ( nodeType0 == T_DOUBLE || nodeType0 == T_INT ) && nodeType1 != T_DOUBLE && nodeType1 != T_INT ) || ( nodeType0 == T_STRING && nodeType1 != T_STRING ) ) {
                         generateAndAddErrMsg( "dynamic type error", node->subtrees[1], RE_DYNAMIC_TYPE_ERROR, errmsg );
+                        deleteHashTable( queCondHashTable, nop );
                         return newErrorRes( r, RE_DYNAMIC_TYPE_ERROR );
                     }
                     value1 = convertResToString( res1 );
@@ -866,6 +872,7 @@ Res *smsi_query( Node** subtrees, int, Node* node, ruleExecInfo_t* rei, int reiS
             break;
         default:
             generateAndAddErrMsg( "unsupported node type", subQueNode, RE_DYNAMIC_TYPE_ERROR, errmsg );
+            deleteHashTable( queCondHashTable, nop );
             return newErrorRes( r, RE_DYNAMIC_TYPE_ERROR );
         }
     }
@@ -1309,6 +1316,7 @@ Res *smsi_str( Node** params, int, Node* node, ruleExecInfo_t*, int, Env*, rErro
         memcpy( tmp, buf->buf, len );
         tmp[len] = '\0';
         res = newStringRes( r, tmp );
+        free( tmp );
     }
     else if ( TYPE( val ) == T_IRODS && strcmp( val->exprType->text, KeyValPair_MS_T ) == 0 ) {
         int size = 1024;
@@ -1964,10 +1972,10 @@ int writeStringNew( char *writeId, char *writeStr, Env* env, Region* r, ruleExec
         insertIntoHashTable( global->current, "ruleExecOut", execOutRes );
     }
 
-    if ( !strcmp( writeId, "stdout" ) ) {
+    if ( writeId && !strcmp( writeId, "stdout" ) ) {
         appendToByteBufNew( &( myExecCmdOut->stdoutBuf ), ( char * ) writeStr );
     }
-    else if ( !strcmp( writeId, "stderr" ) ) {
+    else if ( writeId && !strcmp( writeId, "stderr" ) ) {
         appendToByteBufNew( &( myExecCmdOut->stderrBuf ), ( char * ) writeStr );
     }
     return 0;
@@ -2115,6 +2123,7 @@ Res *smsi_split( Node** paramsr, int, Node*, ruleExecInfo_t*, int, Env*, rError_
         coll->subtrees[j++] = newStringRes( r, bufStart );
     }
 
+    free( buf );
     return coll;
 
 }
@@ -2191,10 +2200,6 @@ Res *smsi_msiAdmShowIRB( Node**, int, Node*, ruleExecInfo_t* rei, int, Env* env,
 }
 Res *smsi_msiAdmShowCoreRE( Node**, int, Node*, ruleExecInfo_t* rei, int, Env* env, rError_t*, Region* r ) {
     char buf[1024];
-    //char *conDir = getConfigDir();
-    //char file2[1024];
-    //snprintf( file2, 1024, "%s/reConfigs/core.re",
-    //          conDir );
 
     std::string full_path;
     irods::error ret = irods::get_full_path_for_config_file( "core.re", full_path );
@@ -2204,6 +2209,10 @@ Res *smsi_msiAdmShowCoreRE( Node**, int, Node*, ruleExecInfo_t* rei, int, Env* e
     }
 
     FILE *f2 = fopen( full_path.c_str(), "r" );
+    if ( f2 == NULL ) {
+        rodsLog( LOG_ERROR, "Could not open the core.re file in msiAdmShowCoreRE" );
+        return newIntRes( r, ret.code() );
+    }
 
     while ( !feof( f2 ) && ferror( f2 ) == 0 ) {
         if ( fgets( buf, 1024, f2 ) != NULL ) {
@@ -2332,13 +2341,6 @@ Res *smsi_msiAdmChangeCoreRE( Node** paramsr, int, Node* node, ruleExecInfo_t* r
         return newErrorRes( r, i );
     }
 #endif
-//   char *conDir = getConfigDir();
-//    char file1[1024];
-//    char file2[1024];
-//    snprintf( file1, 1024, "%s/reConfigs/%s.re",
-//              conDir, paramsr[0]->text );
-//    snprintf( file2, 1024, "%s/reConfigs/core.re",
-//              conDir );
 
     std::string re_full_path;
     irods::error ret = irods::get_full_path_for_config_file( "core.re", re_full_path );
@@ -2454,8 +2456,6 @@ Res *smsi_msiAdmWriteRulesFromStructIntoFile( Node** paramsr, int, Node* node, r
         snprintf( fileName, MAX_NAME_LEN, "%s", inFileName );
     }
     else {
-        //configDir = getConfigDir();
-        //snprintf( fileName, MAX_NAME_LEN, "%s/reConfigs/%s.re", configDir, inFileName );
         std::string cfg_file, fn( inFileName );
         fn += ".re";
         irods::error ret = irods::get_full_path_for_config_file( fn, cfg_file );
@@ -2463,7 +2463,7 @@ Res *smsi_msiAdmWriteRulesFromStructIntoFile( Node** paramsr, int, Node* node, r
             irods::log( PASS( ret ) );
             return newIntRes( r, ret.code() );
         }
-        strncpy( fileName, cfg_file.c_str(), MAX_NAME_LEN );
+        snprintf( fileName, sizeof( fileName ), "%s", cfg_file.c_str() );
     }
 
 
@@ -2495,15 +2495,6 @@ Res * smsi_msiAdmRetrieveRulesFromDBIntoStruct( Node** paramsr, int, Node* node,
 
     int i;
     RuleSet *ruleSet;
-    /*
-    #ifndef DEBUG
-      if ((i = isUserPrivileged(rei->rsComm)) != 0) {
-    	  generateAndAddErrMsg("error reading rules from database", node, i, errmsg);
-          return newIntRes(r, i);
-      }
-    #endif
-    */
-    /* RE_TEST_MACRO ("Loopback on msiGetRulesFromDBIntoStruct"); */
 
     if ( paramsr[0]->text == NULL ||
             strlen( paramsr[0]->text ) == 0 ) {
@@ -2519,10 +2510,7 @@ Res * smsi_msiAdmRetrieveRulesFromDBIntoStruct( Node** paramsr, int, Node* node,
 
     ruleSet = newRuleSet( rsr );
 
-    /* Env *rsEnv = newEnv(newHashTable2(100, rsr), NULL, NULL, rsr); */
-
     i = readRuleSetFromDB( paramsr[0]->text, paramsr[1]->text, ruleSet, rei, errmsg, rsr );
-    /*deleteEnv(rsEnv, 3); */
     if ( i != 0 ) {
         region_free( rsr );
         generateAndAddErrMsg( "error retrieving rules from database.", node, i, errmsg );

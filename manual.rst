@@ -90,11 +90,11 @@ License
 Overview
 --------
 
-This manual provides standalone documentation for iRODS (http://irods.org) as packaged by the Renaissance Computing Institute (RENCI) (http://www.renci.org) under the aegis of the iRODS Consortium (http://irods-consortium.org).
+This manual provides standalone documentation for iRODS (https://irods.org) as packaged by the Renaissance Computing Institute (RENCI) (http://www.renci.org) under the aegis of the iRODS Consortium (https://irods.org/consortium).
 
-    http://irods.org
+    https://irods.org
 
-Additional documentation is available on the iRODS wiki (http://wiki.irods.org), the iRODS Doxygen site (http://irods.org/doxygen), and in the two books previously published by the iRODS team:
+Additional documentation is available on the iRODS wiki (http://wiki.irods.org), the iRODS Doxygen site (https://irods.org/doxygen), and in the two books previously published by the iRODS team:
 
     (2010) iRODS Primer: integrated Rule-Oriented Data System (Synthesis Lectures on Information Concepts, Retrieval, and Services)
     http://www.amazon.com/dp/1608453332
@@ -115,7 +115,7 @@ RPM and DEB formats are available for both iCAT-enabled servers and resource-onl
 
 More combinations will be made available as our testing matrix continues to mature and increase in scope.
 
-The latest files can be downloaded from http://irods.org/download.
+The latest files can be downloaded from https://irods.org/download.
 
 Open Source
 -----------
@@ -911,7 +911,7 @@ iRODS is in the process of being modularized whereby existing iRODS 3.x function
 
 .. _examples/microservices: https://github.com/irods/irods/tree/master/examples/microservices
 
-A separate development package, irods-dev, available at http://irods.org/download, contains the necessary header files to write your own microservice plugins (as well as any other type of iRODS plugin).  Additional information can be found in the `Microservice Developers Tutorial`_.
+A separate development package, irods-dev, available at https://irods.org/download, contains the necessary header files to write your own microservice plugins (as well as any other type of iRODS plugin).  Additional information can be found in the `Microservice Developers Tutorial`_.
 
 .. _Microservice Developers Tutorial: https://github.com/irods/irods/blob/master/examples/microservices/microservice_tutorial.rst
 
@@ -948,16 +948,16 @@ This virtualization enables the coordinating resources to manage both the placem
 
 An intended side effect of the tree metaphor and the virtualization of coordinating resources is the deprecation of the concept of a resource group. Resource groups in iRODS 3.x could not be put into other resource groups. A specific limiting example is a compound resource that, by definition, was a group and could not be placed into another group.  This significantly limited its functionality as a management tool. Groups in iRODS now only refer to user groups.
 
-Read more about Composable Resources at `http://irods.org/2013/02/e-irods-composable-resources/`__:
+Read more about Composable Resources at `https://irods.org/2013/02/e-irods-composable-resources/`__:
 
 - `Paper (279kB, PDF)`__
 - `Slides (321kB, PDF)`__
 - `Poster (6.4MB, PDF)`__
 
-.. __: http://irods.org/2013/02/e-irods-composable-resources/
-.. __: http://irods.org/dev/wp-content/uploads/2013/02/eirods-composable-resources.pdf
-.. __: http://irods.org/dev/wp-content/uploads/2013/02/eirods-cr-slides.pdf
-.. __: http://irods.org/dev/wp-content/uploads/2013/02/eirods-composable-resources-poster.pdf
+.. __: https://irods.org/2013/02/e-irods-composable-resources/
+.. __: https://irods.org/wp-content/uploads/2013/02/eirods-composable-resources.pdf
+.. __: https://irods.org/wp-content/uploads/2013/02/eirods-cr-slides.pdf
+.. __: https://irods.org/wp-content/uploads/2013/02/eirods-composable-resources-poster.pdf
 
 Coordinating Resources
 ----------------------
@@ -1214,7 +1214,7 @@ The possible values for irodsClientServerPolicy include:
 - CS_NEG_DONT_CARE: This side of the connection will connect either with or without SSL
 - CS_NEG_REFUSE: (default) This side of the connection refuses to connect via SSL
 
-In order for a connection to be made, the client and server have to agree on the type of connection they will share.  When both sides choose ``CS_NEG_DONT_CARE``, iRODS shows an affinity for security by connecting via SSL.
+In order for a connection to be made, the client and server have to agree on the type of connection they will share.  When both sides choose ``CS_NEG_DONT_CARE``, iRODS shows an affinity for security by connecting via SSL.  Additionally, it is important to note that all servers in an iRODS Zone are required to share the same SSL credentials (certificates, keys, etc.).  Maintaining per-route certificates is not supported at this time.
 
 The remaining parameters are standard SSL parameters and made available through the EVP library included with OpenSSL.  You can read more about these remaining parameters at https://www.openssl.org/docs/crypto/evp.html.
 
@@ -1237,9 +1237,9 @@ To implement a new database plugin, a developer will need to provide the existin
 Installing lib_mysqludf_preg
 ----------------------------
 
-Installing the iRODS MySQL database plugin requires the MySQL server to have the `lib_mysqludf_preg functions`__ installed and available to iRODS.
+To use the iRODS MySQL database plugin, the MySQL server must have the `lib_mysqludf_preg functions`__ installed and available to iRODS. iRODS installation (`setup_irods.sh`) will fail if these functions are not installed on the database.
 
-The steps for installing `lib_mysqludf_preg` on Ubuntu 14.04 include::
+The steps for installing `lib_mysqludf_preg` on Ubuntu 14.04 are::
 
  # Get Dependencies
  sudo apt-get install mysql-server mysql-client libmysqlclient-dev libpcre3-dev automake libtool
@@ -1252,24 +1252,17 @@ The steps for installing `lib_mysqludf_preg` on Ubuntu 14.04 include::
  sudo make install
  sudo make MYSQL="mysql -p" installdb
 
-The iRODS MySQL database plugin checks for these functions during installation. Therefore, before installing the iRODS MySQL database plugin, you must also grant the iRODS MySQL user account the ``select`` privilege on the ``mysql.func`` system table. The following example assumes that the iRODS MySQL user account is ``irods`` and it is allowed to connect from host ``localhost``::
+To test the installation, execute the following command::
 
- $ mysql --user=$MYSQL_ADMIN_ACCOUNT --password=$MYSQL_ADMIN_PASSWORD -e "grant select on mysql.func to 'irods'@'localhost';"
+ $ mysql --user=$MYSQL_IRODS_ACCOUNT --password=$MYSQL_IRODS_PASSWORD -e "select PREG_REPLACE('/failed/i', 'succeeded', 'Call to PREG_REPLACE() failed.')"
 
-Once you have granted the ``select`` privilege to the iRODS MySQL user account, you can confirm the installation of the functions with::
+which should display the following output::
 
- $ mysql --user=$MYSQL_IRODS_ACCOUNT --password=$MYSQL_IRODS_PASSWORD -e "select name from mysql.func;"
-
- +------------------------+
- | name                   |
- +------------------------+
- | lib_mysqludf_preg_info |
- | preg_capture           |
- | preg_check             |
- | preg_position          |
- | preg_replace           |
- | preg_rlike             |
- +------------------------+
+ +--------------------------------------------------------------------------+
+ | PREG_REPLACE('/failed/i', 'succeeded', 'Call to PREG_REPLACE() failed.') |
+ +--------------------------------------------------------------------------+
+ | Call to PREG_REPLACE() succeeded.                                        |
+ +--------------------------------------------------------------------------+
 
 .. __: https://github.com/mysqludf/lib_mysqludf_preg
 
@@ -1502,7 +1495,11 @@ Then, the user runs 'iinit' and enters their system password.  To protect the sy
 
 
 
+Since PAM requires the user's password in plaintext, iRODS relies on SSL encryption to protect these credentials.  PAM authentication makes use of SSL regardless of the iRODS Zone SSL configuration (meaning even if iRODS explicitly does *not* encrypt data traffic, PAM will use SSL during authentication).
+
 In order to use the iRODS PAM support, you also need to have SSL working between the iRODS client and server. The SSL communication between client and iRODS server needs some basic setup in order to function properly. Much of the setup concerns getting a proper X.509 certificate setup on the server side, and setting up the trust for the server certificate on the client side. You can use either a self-signed certificate (best for testing) or a certificate from a trusted CA.
+
+
 
 Server Configuration
 ********************
@@ -1672,9 +1669,8 @@ irods_ssl_ca_certificate_path (client)
 Other Notes
 -----------
 
-iRODS enforces that the database in use (PostgreSQL) is configured for UTF-8 encoding.  This is enforced at the database level and then the tables inherit this setting.
 
-The iRODS setting 'StrictACL' is configured on by default in iRODS 4.0+.  This is different from iRODS 3.x and behaves more like standard Unix permissions.  This setting can be found in the `/etc/irods/core.re` file under acAclPolicy{}.
+The iRODS setting 'StrictACL' is configured on by default in iRODS 4.x.  This is different from iRODS 3.x and behaves more like standard Unix permissions.  This setting can be found in the `/etc/irods/core.re` file under acAclPolicy{}.
 
 
 

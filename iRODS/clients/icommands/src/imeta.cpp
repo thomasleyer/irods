@@ -142,14 +142,15 @@ showDataObj( char *name, char *attrName, int wild ) {
     snprintf( v2, sizeof( v1 ), "='%s'", name );
     condVal[1] = v2;
 
-    strncpy( fullName, cwd, MAX_NAME_LEN );
-    rstrcat( fullName, "/", MAX_NAME_LEN );
-    rstrcat( fullName, name, MAX_NAME_LEN );
+    if ( *name == '/' ) {
+        snprintf( fullName, sizeof( fullName ), "%s", name );
+    }
+    else {
+        snprintf( fullName, sizeof( fullName ), "%s/%s", cwd, name );
+    }
+
     if ( strstr( name, "/" ) != NULL ) {
         /* reset v1 and v2 for when full path or relative path entered */
-        if ( *name == '/' ) {
-            strncpy( fullName, name, MAX_NAME_LEN );
-        }
         if ( int status = splitPathByKey( fullName, myDirName,
                                           MAX_NAME_LEN, myFileName, MAX_NAME_LEN, '/' ) ) {
             rodsLog( LOG_ERROR, "splitPathByKey failed in showDataObj with status %d", status );
@@ -458,7 +459,7 @@ showUser( char *name, char *attrName, int wild ) {
         return 0;
     }
     if ( userZone[0] == '\0' ) {
-        strncpy( userZone, myEnv.rodsZone, NAME_LEN );
+        snprintf( userZone, sizeof( userZone ), "%s", myEnv.rodsZone );
     }
 
     memset( &genQueryInp, 0, sizeof( genQueryInp_t ) );
@@ -898,36 +899,36 @@ modCopyAVUMetadata( char *arg0, char *arg1, char *arg2, char *arg3,
     char fullName1[MAX_NAME_LEN];
     char fullName2[MAX_NAME_LEN];
 
-    strncpy( fullName1, cwd, MAX_NAME_LEN );
     if ( strcmp( arg1, "-R" ) == 0 || strcmp( arg1, "-r" ) == 0 ||
             strcmp( arg1, "-u" ) == 0 ) {
-        strncpy( fullName1, arg3, MAX_NAME_LEN );
+        snprintf( fullName1, sizeof( fullName1 ), "%s", arg3 );
     }
-    else {
-        if ( strlen( arg3 ) > 0 ) {
-            if ( *arg3 == '/' ) {
-                strncpy( fullName1, arg3, MAX_NAME_LEN );
-            }
-            else {
-                rstrcat( fullName1, "/", MAX_NAME_LEN );
-                rstrcat( fullName1, arg3, MAX_NAME_LEN );
-            }
+    else if ( strlen( arg3 ) > 0 ) {
+        if ( *arg3 == '/' ) {
+            snprintf( fullName1, sizeof( fullName1 ), "%s", arg3 );
+        }
+        else {
+            snprintf( fullName1, sizeof( fullName1 ), "%s/%s", cwd, arg3 );
         }
     }
+    else {
+        snprintf( fullName1, sizeof( fullName1 ), "%s", cwd );
+    }
 
-    strncpy( fullName2, cwd, MAX_NAME_LEN );
     if ( strcmp( arg2, "-R" ) == 0 || strcmp( arg2, "-r" ) == 0 ||
             strcmp( arg2, "-u" ) == 0 ) {
-        strncpy( fullName2, arg4, MAX_NAME_LEN );
+        snprintf( fullName2, sizeof( fullName2 ), "%s", arg4 );
     }
     else if ( strlen( arg4 ) > 0 ) {
         if ( *arg4 == '/' ) {
-            strncpy( fullName2, arg4, MAX_NAME_LEN );
+            snprintf( fullName2, sizeof( fullName2 ), "%s", arg4 );
         }
         else {
-            rstrcat( fullName2, "/", MAX_NAME_LEN );
-            rstrcat( fullName2, arg4, MAX_NAME_LEN );
+            snprintf( fullName2, sizeof( fullName2 ), "%s/%s", cwd, arg4 );
         }
+    }
+    else {
+        snprintf( fullName2, sizeof( fullName2 ), "%s", cwd );
     }
 
     modAVUMetadataInp.arg0 = arg0;
@@ -996,20 +997,22 @@ modAVUMetadata( char *arg0, char *arg1, char *arg2, char *arg3,
     char *myName;
     char fullName[MAX_NAME_LEN];
 
-    strncpy( fullName, cwd, MAX_NAME_LEN );
     if ( strcmp( arg1, "-R" ) == 0 || strcmp( arg1, "-r" ) == 0 ||
             strcmp( arg1, "-u" ) == 0 ) {
-        strncpy( fullName, arg2, MAX_NAME_LEN );
+        snprintf( fullName, sizeof( fullName ), "%s", arg2 );
     }
     else if ( strlen( arg2 ) > 0 ) {
         if ( *arg2 == '/' ) {
-            strncpy( fullName, arg2, MAX_NAME_LEN );
+            snprintf( fullName, sizeof( fullName ), "%s", arg2 );
         }
         else {
-            rstrcat( fullName, "/", MAX_NAME_LEN );
-            rstrcat( fullName, arg2, MAX_NAME_LEN );
+            snprintf( fullName, sizeof( fullName ), "%s/%s", cwd, arg2 );
         }
     }
+    else {
+        snprintf( fullName, sizeof( fullName ), "%s", cwd );
+    }
+
 
     modAVUMetadataInp.arg0 = arg0;
     modAVUMetadataInp.arg1 = arg1;
@@ -1349,6 +1352,9 @@ doCommand( char *cmdToken[] ) {
 
 int
 main( int argc, char **argv ) {
+
+    signal( SIGPIPE, SIG_IGN );
+
     int status, i, j;
     rErrMsg_t errMsg;
 

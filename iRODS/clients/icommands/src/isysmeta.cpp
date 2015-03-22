@@ -301,6 +301,9 @@ doModComment( rcComm_t *Conn, char *objPath, int numRepl, char *theComment ) {
 
 int
 main( int argc, char **argv ) {
+
+    signal( SIGPIPE, SIG_IGN );
+
     int status;
     rodsArguments_t myRodsArgs;
     rodsEnv myEnv;
@@ -333,7 +336,7 @@ main( int argc, char **argv ) {
                  status );
         exit( 1 );
     }
-    strncpy( objPath, myEnv.rodsCwd, MAX_NAME_LEN );
+    snprintf( objPath, sizeof( objPath ), "%s", myEnv.rodsCwd );
 
     for ( i = 0; i < maxCmdTokens; i++ ) {
         cmdToken[i] = "";

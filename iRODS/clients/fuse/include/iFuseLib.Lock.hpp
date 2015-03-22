@@ -10,7 +10,6 @@
  * DescLock
  * iFuseDesc
  * FileCache
- * iFuseConn.inuseLock
  * iFuseConn struct
  * lock for concurrent queue in iFuseLib.Conn.c
  *
@@ -42,12 +41,14 @@ typedef struct ConcurrentList {
 extern boost::mutex* PathCacheLock;
 extern boost::thread*            ConnManagerThr;
 extern boost::mutex*             ConnManagerLock;
+extern boost::mutex*             WaitForConnLock;
 extern boost::condition_variable ConnManagerCond;
 #else
 #include <pthread.h>
 extern pthread_mutex_t PathCacheLock;
 extern pthread_t ConnManagerThr;
 extern pthread_mutex_t ConnManagerLock;
+extern pthread_mutex_t WaitForConnLock;
 extern pthread_cond_t ConnManagerCond;
 #endif
 
@@ -70,7 +71,8 @@ void releaseFuseConnLock( iFuseConn_t *tmpIFuseConn );
 void initConnReqWaitMutex( connReqWait_t *myConnReqWait );
 void deleteConnReqWaitMutex( connReqWait_t *myConnReqWait );
 void timeoutWait( boost::mutex **ConnManagerLock, boost::condition_variable *ConnManagerCond, int sleepTime );
-void notifyTimeoutWait( boost::mutex **ConnManagerLock, boost::condition_variable *ConnManagerCond );
+void untimedWait( boost::mutex **ConnManagerLock, boost::condition_variable *ConnManagerCond );
+void notifyWait( boost::mutex **ConnManagerLock, boost::condition_variable *ConnManagerCond );
 #else
 #ifdef FUSE_DEBUG
 #define UNLOCK(Lock) \
@@ -97,7 +99,8 @@ void releaseFuseConnLock( iFuseConn_t *tmpIFuseConn );
 void initConnReqWaitMutex( connReqWait_t *myConnReqWait );
 void deleteConnReqWaitMutex( connReqWait_t *myConnReqWait );
 void timeoutWait( pthread_mutex_t *ConnManagerLock, pthread_cond_t *ConnManagerCond, int sleepTime );
-void notifyTimeoutWait( pthread_mutex_t *mutex, pthread_cond_t *cond );
+void untimedWait( pthread_mutex_t *ConnManagerLock, pthread_cond_t *ConnManagerCond );
+void notifyWait( pthread_mutex_t *mutex, pthread_cond_t *cond );
 #endif
 
 #define FREE(s, t) _free##t(s);
@@ -169,17 +172,14 @@ int listSize( concurrentList_t *l );
 iFuseConn_t *getAndUseConnByPath( char *localPath, int *status );
 int lookupPathNotExist( PathCacheTable *pctable, char *inPath );
 int lookupPathExist( PathCacheTable *pctable, char *inPath, pathCache_t **paca );
-int matchAndLockPathCache( PathCacheTable *pctable, char *inPath, pathCache_t **outPathCache );
-int _matchAndLockPathCache( PathCacheTable *pctable, char *inPath, pathCache_t **outPathCache );
+pathCache_t *matchPathCache( PathCacheTable *pctable, const char *inPath );
 int updatePathCacheStatFromFileCache( pathCache_t *tmpPathCache );
-int _updatePathCacheStatFromFileCache( pathCache_t *tmpPathCache );
 int clearPathFromCache( PathCacheTable *pctable, char *inPath );
 int pathNotExist( PathCacheTable *pctable, char *inPath );
 int pathExist( PathCacheTable *pctable, char *inPath, fileCache_t *fileCache, struct stat *stbuf, pathCache_t **outPathCache );
 fileCache_t *addFileCache( int iFd, char *objPath, char *localPath, char *cachePath, int mode, rodsLong_t fileCache, cacheState_t state );
-int _addFileCacheForPath( pathCache_t *pathCache, fileCache_t *fileCache );
-int _pathNotExist( PathCacheTable *pctable, char *path );
-int _pathReplace( PathCacheTable *pctable, char *inPath, fileCache_t *fileCache, struct stat *stbuf, pathCache_t **outPathCache );
+int addFileCacheForPath( pathCache_t *pathCache, fileCache_t *fileCache );
+int pathReplace( PathCacheTable *pctable, char *inPath, fileCache_t *fileCache, struct stat *stbuf, pathCache_t **outPathCache );
 int _getAndUseConnForPathCache( iFuseConn_t **iFuseConn, pathCache_t *paca );
 int _getAndUseIFuseConn( iFuseConn_t **iFuseConn );
 int getAndUseIFuseConn( iFuseConn_t **iFuseConn );

@@ -14,20 +14,18 @@
 
 #undef USE_BOOST
 
-/*
- * An ifuseconn->inuseLock is locked when before it goes from free to inuse and during the whole time it is in use, it is only unlocked when it is unused.
- */
 concurrentList_t *ConnectedConn;
 concurrentList_t *FreeConn;
-concurrentList_t *ConnReqWaitQue;
+connReqWait_t connReqWait;
 static PathCacheTable *pctable;
 
 static int ConnManagerStarted = 0;
 
 void initConn() {
+    bzero( &connReqWait, sizeof( connReqWait ) );
+    initConnReqWaitMutex( &connReqWait );
     ConnectedConn = newConcurrentList();
     FreeConn = newConcurrentList();
-    ConnReqWaitQue = newConcurrentList();
     pctable = initPathCache();
 }
 /* getIFuseConnByPath - try to use the same conn as opened desc of the
@@ -35,10 +33,9 @@ void initConn() {
 iFuseConn_t *getAndUseConnByPath( char *localPath, int *status ) {
     iFuseConn_t *iFuseConn;
     /* make sure iFuseConn is not released after getAndLockIFuseDescByPath finishes */
-    pathCache_t *tmpPathCache;
-    matchAndLockPathCache( pctable, localPath, &tmpPathCache );
-
-    if ( tmpPathCache != NULL ) {
+    pathCache_t *tmpPathCache = matchPathCache( pctable, localPath );
+    if ( tmpPathCache ) {
+        LOCK_STRUCT( *tmpPathCache );
         *status = _getAndUseConnForPathCache( &iFuseConn, tmpPathCache );
         UNLOCK_STRUCT( *tmpPathCache );
     }
@@ -107,65 +104,39 @@ int getAndUseIFuseConn( iFuseConn_t **iFuseConn ) {
 
 }
 
-void _waitForConn() {
-    connReqWait_t myConnReqWait;
-    bzero( &myConnReqWait, sizeof( myConnReqWait ) );
-    initConnReqWaitMutex( &myConnReqWait );
-    addToConcurrentList( ConnReqWaitQue, &myConnReqWait );
-
-    while ( myConnReqWait.state == 0 ) {
-        timeoutWait( &myConnReqWait.mutex, &myConnReqWait.cond, CONN_REQ_SLEEP_TIME );
-    }
-
-    deleteConnReqWaitMutex( &myConnReqWait );
-}
-
 int _getAndUseIFuseConn( iFuseConn_t **iFuseConn ) {
     int status;
     iFuseConn_t *tmpIFuseConn;
 
     *iFuseConn = NULL;
 
-    while ( *iFuseConn == NULL ) {
-        /* get a free IFuseConn */
+    LOCK( WaitForConnLock );
+    while ( listSize( ConnectedConn ) >= MAX_NUM_CONN && listSize( FreeConn ) == 0 ) {
+        untimedWait( &connReqWait.mutex, &connReqWait.cond );
+    }
 
-        if ( listSize( ConnectedConn ) >= MAX_NUM_CONN && listSize( FreeConn ) == 0 ) {
-            /* have to wait */
-            _waitForConn();
-            /* start from begining */
-            continue;
+    tmpIFuseConn = ( iFuseConn_t * ) removeFirstElementOfConcurrentList( FreeConn );
+    if ( tmpIFuseConn == NULL ) {
+        if ( listSize( ConnectedConn ) < MAX_NUM_CONN ) {
+            tmpIFuseConn = newIFuseConn( &status );
+            if ( status < 0 ) {
+                _freeIFuseConn( tmpIFuseConn );
+                return status;
+            }
+            _useFreeIFuseConn( tmpIFuseConn );
+            addToConcurrentList( ConnectedConn, tmpIFuseConn );
+            *iFuseConn = tmpIFuseConn;
         }
         else {
-            tmpIFuseConn = ( iFuseConn_t * ) removeFirstElementOfConcurrentList( FreeConn );
-            if ( tmpIFuseConn == NULL ) {
-                if ( listSize( ConnectedConn ) < MAX_NUM_CONN ) {
-                    /* may cause num of conn > max num of conn */
-                    /* get here when nothing free. make one */
-                    tmpIFuseConn = newIFuseConn( &status );
-                    if ( status < 0 ) {
-                        _freeIFuseConn( tmpIFuseConn );
-                        return status;
-                    }
-
-                    _useFreeIFuseConn( tmpIFuseConn );
-                    addToConcurrentList( ConnectedConn, tmpIFuseConn );
-
-                    *iFuseConn = tmpIFuseConn;
-                    break;
-
-                }
-                _waitForConn();
-                continue;
-            }
-            else {
-                useIFuseConn( tmpIFuseConn );
-                *iFuseConn = tmpIFuseConn;
-                break;
-            }
+            rodsLog( LOG_ERROR, "failure to acquire fuse connection; maximum fuse connections exceeded." );
+            return SYS_MAX_CONNECT_COUNT_EXCEEDED;
         }
-
-
-    }	/* while *iFuseConn */
+    }
+    else {
+        useIFuseConn( tmpIFuseConn );
+        *iFuseConn = tmpIFuseConn;
+    }
+    UNLOCK( WaitForConnLock );
 
     if ( ++ConnManagerStarted == HIGH_NUM_CONN ) {
         /* don't do it the first time */
@@ -204,12 +175,7 @@ _useIFuseConn( iFuseConn_t *iFuseConn ) {
 
     iFuseConn->actTime = time( NULL );
     iFuseConn->pendingCnt++;
-    UNLOCK_STRUCT( *iFuseConn );
 
-    /* wait for iFuseConn to be unlocked */
-    LOCK( iFuseConn->inuseLock );
-
-    LOCK_STRUCT( *iFuseConn );
     iFuseConn->inuseCnt++;
     iFuseConn->pendingCnt--;
 
@@ -225,7 +191,6 @@ _useFreeIFuseConn( iFuseConn_t *iFuseConn ) {
     }
     iFuseConn->actTime = time( NULL );
     iFuseConn->inuseCnt++;
-    LOCK( iFuseConn->inuseLock );
     return 0;
 }
 
@@ -241,7 +206,6 @@ unuseIFuseConn( iFuseConn_t *iFuseConn ) {
         addToConcurrentList( FreeConn, iFuseConn );
     }
     UNLOCK_STRUCT( *iFuseConn );
-    UNLOCK( iFuseConn->inuseLock );
     signalConnManager();
     return 0;
 }
@@ -299,7 +263,7 @@ void ifuseDisconnect( iFuseConn_t *tmpIFuseConn ) {
 int
 signalConnManager() {
     if ( listSize( ConnectedConn ) > HIGH_NUM_CONN ) {
-        notifyTimeoutWait( &ConnManagerLock, &ConnManagerCond );
+        notifyWait( &ConnManagerLock, &ConnManagerCond );
     }
     return 0;
 }
@@ -380,22 +344,8 @@ connManager() {
             clearListNoRegion( TimeOutList );
         }
 
-        while ( listSize( ConnectedConn ) <= MAX_NUM_CONN || listSize( FreeConn ) != 0 ) {
-            /* signal one in the wait queue */
-            connReqWait_t *myConnReqWait = ( connReqWait_t * ) removeFirstElementOfConcurrentList( ConnReqWaitQue );
-            /* if there is no conn req left, exit loop */
-            if ( myConnReqWait == NULL ) {
-                break;
-            }
-            myConnReqWait->state = 1;
-            notifyTimeoutWait( &myConnReqWait->mutex, &myConnReqWait->cond );
-        }
-#if 0
-        rodsSleep( CONN_MANAGER_SLEEP_TIME, 0 );
-#else
+        notifyWait( &connReqWait.mutex, &connReqWait.cond );
         timeoutWait( &ConnManagerLock, &ConnManagerCond, CONN_MANAGER_SLEEP_TIME );
-#endif
-
 
     }
     deleteListNoRegion( TimeOutList );

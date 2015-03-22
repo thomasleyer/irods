@@ -268,7 +268,7 @@ int _admShowFNM( ruleExecInfo_t *rei, rulefmapdef_t *inRuleFuncMapDef, int inx )
 int msiAdmReadDVMapsFromFileIntoStruct( msParam_t *inDvmFileNameParam, msParam_t *outCoreDVMapStruct, ruleExecInfo_t *rei ) {
 
     int i;
-    dvmStruct_t *coreDVMapStrct;
+    dvmStruct_t *coreDVMapStruct;
 
     if ( ( i = isUserPrivileged( rei->rsComm ) ) != 0 ) {
         return i;
@@ -286,24 +286,23 @@ int msiAdmReadDVMapsFromFileIntoStruct( msParam_t *inDvmFileNameParam, msParam_t
     if ( outCoreDVMapStruct->type != NULL &&
             strcmp( outCoreDVMapStruct->type, DVMapStruct_MS_T ) == 0 &&
             outCoreDVMapStruct->inOutStruct != NULL ) {
-        coreDVMapStrct = ( dvmStruct_t * ) outCoreDVMapStruct->inOutStruct;
+        coreDVMapStruct = ( dvmStruct_t * ) outCoreDVMapStruct->inOutStruct;
     }
     else {
-        coreDVMapStrct = ( dvmStruct_t * ) malloc( sizeof( dvmStruct_t ) );
-        coreDVMapStrct->MaxNumOfDVars = 0;
+        coreDVMapStruct = ( dvmStruct_t * ) malloc( sizeof( dvmStruct_t ) );
+        coreDVMapStruct->MaxNumOfDVars = 0;
     }
-    i = readDVarStructFromFile( ( char* ) inDvmFileNameParam->inOutStruct, coreDVMapStrct );
+    i = readDVarStructFromFile( ( char* ) inDvmFileNameParam->inOutStruct, coreDVMapStruct );
     if ( i != 0 ) {
-        if ( strcmp( outCoreDVMapStruct->type, DVMapStruct_MS_T ) != 0 ) {
-            free( coreDVMapStrct );
-        }
+        free( coreDVMapStruct );
         return i;
     }
 
-    outCoreDVMapStruct->inOutStruct = ( void * ) coreDVMapStrct;
+    outCoreDVMapStruct->inOutStruct = ( void * ) coreDVMapStruct;
     if ( outCoreDVMapStruct->type == NULL ||
             strcmp( outCoreDVMapStruct->type, DVMapStruct_MS_T ) != 0 ) {
-        outCoreDVMapStruct->type = ( char * ) strdup( DVMapStruct_MS_T );
+        free( outCoreDVMapStruct->type );
+        outCoreDVMapStruct->type = strdup( DVMapStruct_MS_T );
     }
     return 0;
 }
@@ -413,7 +412,7 @@ int
 msiGetDVMapsFromDBIntoStruct( msParam_t *inDvmBaseNameParam, msParam_t *inVersionParam, msParam_t *outCoreDVMapStruct, ruleExecInfo_t *rei ) {
 
     int i;
-    dvmStruct_t *coreDVMapStrct;
+    dvmStruct_t *coreDVMapStruct;
 
     RE_TEST_MACRO( "Loopback on msiGetDVMapsFromDBIntoStruct" );
 
@@ -432,24 +431,25 @@ msiGetDVMapsFromDBIntoStruct( msParam_t *inDvmBaseNameParam, msParam_t *inVersio
     if ( outCoreDVMapStruct->type != NULL &&
             strcmp( outCoreDVMapStruct->type, DVMapStruct_MS_T ) == 0 &&
             outCoreDVMapStruct->inOutStruct != NULL ) {
-        coreDVMapStrct = ( dvmStruct_t * ) outCoreDVMapStruct->inOutStruct;
+        coreDVMapStruct = ( dvmStruct_t * ) outCoreDVMapStruct->inOutStruct;
     }
     else {
-        coreDVMapStrct = ( dvmStruct_t * ) malloc( sizeof( dvmStruct_t ) );
-        coreDVMapStrct->MaxNumOfDVars = 0;
+        coreDVMapStruct = ( dvmStruct_t * ) malloc( sizeof( dvmStruct_t ) );
+        coreDVMapStruct->MaxNumOfDVars = 0;
     }
-    i = readDVMapStructFromDB( ( char* ) inDvmBaseNameParam->inOutStruct, ( char* ) inVersionParam->inOutStruct,  coreDVMapStrct, rei );
+    i = readDVMapStructFromDB( ( char* ) inDvmBaseNameParam->inOutStruct, ( char* ) inVersionParam->inOutStruct,  coreDVMapStruct, rei );
     if ( i != 0 ) {
         if ( strcmp( outCoreDVMapStruct->type, DVMapStruct_MS_T ) != 0 ) {
-            free( coreDVMapStrct );
+            free( coreDVMapStruct );
         }
         return i;
     }
 
-    outCoreDVMapStruct->inOutStruct = ( void * ) coreDVMapStrct;
+    outCoreDVMapStruct->inOutStruct = ( void * ) coreDVMapStruct;
     if ( outCoreDVMapStruct->type == NULL ||
             strcmp( outCoreDVMapStruct->type, DVMapStruct_MS_T ) != 0 ) {
-        outCoreDVMapStruct->type = ( char * ) strdup( DVMapStruct_MS_T );
+        free( outCoreDVMapStruct->type );
+        outCoreDVMapStruct->type = strdup( DVMapStruct_MS_T );
     }
     return 0;
 }
@@ -559,6 +559,7 @@ int msiAdmReadFNMapsFromFileIntoStruct( msParam_t *inFnmFileNameParam, msParam_t
 
     int i;
     fnmapStruct_t *coreFNMapStrct;
+    fnmapStruct_t *coreFNMapStrctBuf = NULL;
 
     if ( ( i = isUserPrivileged( rei->rsComm ) ) != 0 ) {
         return i;
@@ -579,21 +580,23 @@ int msiAdmReadFNMapsFromFileIntoStruct( msParam_t *inFnmFileNameParam, msParam_t
         coreFNMapStrct = ( fnmapStruct_t * ) outCoreFNMapStruct->inOutStruct;
     }
     else {
-        coreFNMapStrct = ( fnmapStruct_t * ) malloc( sizeof( fnmapStruct_t ) );
+        coreFNMapStrct = coreFNMapStrctBuf = ( fnmapStruct_t * ) malloc( sizeof( fnmapStruct_t ) );
         coreFNMapStrct->MaxNumOfFMaps = 0;
     }
     i = readFuncMapStructFromFile( ( char* ) inFnmFileNameParam->inOutStruct, coreFNMapStrct );
     if ( i != 0 ) {
-        if ( strcmp( outCoreFNMapStruct->type, FNMapStruct_MS_T ) != 0 ) {
-            free( coreFNMapStrct );
-        }
+        free( coreFNMapStrctBuf );
         return i;
     }
 
-    outCoreFNMapStruct->inOutStruct = ( void * ) coreFNMapStrct;
+    if ( coreFNMapStrctBuf ) {
+        free( outCoreFNMapStruct->inOutStruct );
+    }
+    outCoreFNMapStruct->inOutStruct = ( void * ) coreFNMapStrctBuf;
     if ( outCoreFNMapStruct->type == NULL ||
             strcmp( outCoreFNMapStruct->type, FNMapStruct_MS_T ) != 0 ) {
-        outCoreFNMapStruct->type = ( char * ) strdup( FNMapStruct_MS_T );
+        free( outCoreFNMapStruct->type );
+        outCoreFNMapStruct->type = strdup( FNMapStruct_MS_T );
     }
     return 0;
 }
@@ -740,7 +743,8 @@ msiGetFNMapsFromDBIntoStruct( msParam_t *inFnmBaseNameParam, msParam_t *inVersio
     outCoreFNMapStruct->inOutStruct = ( void * ) coreFNMapStrct;
     if ( outCoreFNMapStruct->type == NULL ||
             strcmp( outCoreFNMapStruct->type, FNMapStruct_MS_T ) != 0 ) {
-        outCoreFNMapStruct->type = ( char * ) strdup( FNMapStruct_MS_T );
+        free( outCoreFNMapStruct->type );
+        outCoreFNMapStruct->type = strdup( FNMapStruct_MS_T );
     }
     return 0;
 }
@@ -883,7 +887,8 @@ int msiAdmReadMSrvcsFromFileIntoStruct( msParam_t *inMsrvcFileNameParam, msParam
     outCoreMsrvcStruct->inOutStruct = ( void * ) coreMsrvcStrct;
     if ( outCoreMsrvcStruct->type == NULL ||
             strcmp( outCoreMsrvcStruct->type, MsrvcStruct_MS_T ) != 0 ) {
-        outCoreMsrvcStruct->type = ( char * ) strdup( MsrvcStruct_MS_T );
+        free( outCoreMsrvcStruct->type );
+        outCoreMsrvcStruct->type = strdup( MsrvcStruct_MS_T );
     }
     return 0;
 }
@@ -1032,7 +1037,8 @@ msiGetMSrvcsFromDBIntoStruct( msParam_t *inStatus, msParam_t *outCoreMsrvcStruct
     outCoreMsrvcStruct->inOutStruct = ( void * ) coreMsrvcStrct;
     if ( outCoreMsrvcStruct->type == NULL ||
             strcmp( outCoreMsrvcStruct->type, MsrvcStruct_MS_T ) != 0 ) {
-        outCoreMsrvcStruct->type = ( char * ) strdup( MsrvcStruct_MS_T );
+        free( outCoreMsrvcStruct->type );
+        outCoreMsrvcStruct->type = strdup( MsrvcStruct_MS_T );
     }
     return 0;
 }

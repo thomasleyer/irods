@@ -1,3 +1,5 @@
+include ../VERSION
+
 include ../iRODS/config/config.mk
 
 include ../iRODS/config/external_versions.txt
@@ -12,7 +14,7 @@ RENCI_FTP_BUILD=ftp://ftp.renci.org/pub/irods/build
 OSNAME=$$(../packaging/find_os.sh)
 OSVERSION=$$(../packaging/find_os_version.sh)
 OS=$(OSNAME)$$( if [ "$(OSNAME)" = "RedHatCompatible" -a "$(OSVERSION)" \> "6" ] ; then echo "_CentOS6" ; fi)
-IRODSEXTERNALARCHIVE=irods_external_$(OS).tar.gz
+IRODSEXTERNALARCHIVE=irods_external_$(IRODSVERSION)_$(OS).tar.gz
 IRODSEXTERNALLOCAL=irods_external.tar.gz
 
 CMAKEVERSIONARCHIVE=$(CMAKEVERSION).tar.gz
@@ -83,9 +85,9 @@ $(FAKETARGETFORMAKE) : $(IRODSEXTERNALLOCAL)
 	@touch $(FAKETARGETFORMAKE)
 
 ifeq ($(OS_platform), osx_platform)
-build : cmake libarchive jansson boost epm hdf5 netcdf lib_mysqludf_preg libs3 check avro zeromq cppzmq build_database_for_macosx
+build : cmake libarchive jansson boost epm hdf5 netcdf lib_mysqludf_preg libs3 check avro zeromq build_database_for_macosx
 else
-build : cmake libarchive jansson boost epm hdf5 netcdf lib_mysqludf_preg libs3 check avro zeromq cppzmq
+build : cmake libarchive jansson boost epm hdf5 netcdf lib_mysqludf_preg libs3 check avro zeromq
 endif
 
 generate : build
@@ -231,7 +233,7 @@ $(ZEROMQVERSIONMAKE) : $(ZEROMQVERSIONARCHIVE)
 	@cd $(ZEROMQVERSION) ; \
 		env ac_cv_lib_sodium_sodium_init="no" ./configure
 
-zeromq : $(ZEROMQVERSIONMAKE)
+zeromq : $(ZEROMQVERSIONMAKE) cppzmq
 	@$(MAKE) -C $(ZEROMQVERSION)
 
 $(CPPZMQVERSIONARCHIVE) :
@@ -240,8 +242,8 @@ $(CPPZMQVERSIONARCHIVE) :
 $(CPPZMQVERSIONMAKE) : $(CPPZMQVERSIONARCHIVE)
 	@tar zxf $(CPPZMQVERSIONARCHIVE)
 
-cppzmq : $(CPPZMQVERSIONMAKE) zeromq
-	@cp $(CPPZMQVERSION)/zmq.hpp $(ZEROMQVERSION)/include/
+cppzmq : $(CPPZMQVERSIONMAKE) $(ZEROMQVERSIONMAKE)
+	@rsync $(CPPZMQVERSION)/zmq.hpp $(ZEROMQVERSION)/include/
 
 $(EPMVERSIONARCHIVE) :
 	@wget $(RENCI_FTP_BUILD)/$(EPMVERSIONARCHIVE) 2>&1

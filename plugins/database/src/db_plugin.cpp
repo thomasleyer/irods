@@ -1,6 +1,6 @@
 // =-=-=-=-=-=-=-
 // irods includes
-#include "rodsDef.hpp"
+#include "rodsDef.h"
 #include "msParam.hpp"
 #include "reGlobalsExtern.hpp"
 #include "reFuncDefs.hpp"
@@ -411,7 +411,7 @@ irods::error _childIsValid(
         return PASS( ret );
     }
 
-    // Get resources parent
+    // Get resource's parent
     irods::sql_logger logger( "_childIsValid", logSQL );
     logger.log();
     parent[0] = '\0';
@@ -428,21 +428,21 @@ irods::error _childIsValid(
             std::stringstream ss;
             ss << "Child resource \"" << resc_name << "\" not found";
             irods::log( LOG_NOTICE, ss.str() );
+            return ERROR( CHILD_NOT_FOUND, "child resource not found" );
         }
         else {
             _rollback( "_childIsValid" );
+            return ERROR( status, "error encountered in query for _childIsValid" );
         }
-        result = status;
-
     }
     else if ( strlen( parent ) != 0 ) {
         // If the resource already has a parent it cannot be added as a child of another one
         std::stringstream ss;
         ss << "Child resource \"" << resc_name << "\" already has a parent \"" << parent << "\"";
         irods::log( LOG_NOTICE, ss.str() );
-        result = CHILD_HAS_PARENT;
+        return ERROR( CHILD_HAS_PARENT, "child resource already has a parent" );
     }
-    return ERROR( result, "child resource already has a parent" );
+    return SUCCESS();
 }
 
 int
@@ -928,22 +928,6 @@ static int _delColl( rsComm_t *rsComm, collInfo_t *collInfo ) {
     /* Remove associated AVUs, if any */
     removeMetaMapAndAVU( collIdNum );
 
-    /* remove any filesystem metadata entries */
-    cllBindVars[cllBindVarCount++] = collIdNum;
-    if ( logSQL ) {
-        rodsLog( LOG_SQL, "_delColl xSQL14" );
-    }
-    status =  cmlExecuteNoAnswerSql(
-                  "delete from R_OBJT_FILESYSTEM_META where object_id=?",
-                  &icss );
-    if ( status && status != CAT_SUCCESS_BUT_WITH_NO_INFO ) {
-        /* error might indicate that this wasn't set
-          which isn't a problem. Fall through. */
-        rodsLog( LOG_NOTICE,
-                 "_delColl delete filesystem meta failure %d",
-                 status );
-    }
-
     /* Audit */
     status = cmlAudit3( AU_DELETE_COLL,
                         collIdNum,
@@ -1164,7 +1148,7 @@ icatDescramble( char *pw ) {
             return 0;                /* not scrambled, leave as is */
         }
     }
-    strncpy( pw2, cp1, MAX_PASSWORD_LEN );
+    snprintf( pw2, sizeof( pw2 ), "%s", cp1 );
     cp3 = getenv( PASSWORD_KEY_ENV_VAR );
     if ( cp3 == NULL ) {
         cp3 = PASSWORD_DEFAULT_KEY;
@@ -1190,8 +1174,7 @@ icatScramble( char *pw ) {
         cp1 = PASSWORD_DEFAULT_KEY;
     }
     obfEncodeByKey( pw, cp1, scrambled );
-    strncpy( newPw, PASSWORD_SCRAMBLE_PREFIX, MAX_PASSWORD_LEN );
-    strncat( newPw, scrambled, MAX_PASSWORD_LEN );
+    snprintf( newPw, sizeof( newPw ), "%s%s", PASSWORD_SCRAMBLE_PREFIX, scrambled );
     strncpy( pw, newPw, MAX_PASSWORD_LEN );
     return 0;
 }
@@ -1860,7 +1843,7 @@ icatGetTicketUserId( irods::plugin_property_map& _prop_map, char *userName, char
         return ret.code();
     }
 
-    strncpy( zoneToUse, zone.c_str(), NAME_LEN );
+    snprintf( zoneToUse, sizeof( zoneToUse ), "%s", zone.c_str() );
     status = parseUserName( userName, userName2, userZone );
     if ( userZone[0] != '\0' ) {
         rstrcpy( zoneToUse, userZone, NAME_LEN );
@@ -1902,7 +1885,7 @@ icatGetTicketGroupId( irods::plugin_property_map& _prop_map, char *groupName, ch
         return ret.code();
     }
 
-    strncpy( zoneToUse, zone.c_str(), NAME_LEN );
+    snprintf( zoneToUse, sizeof( zoneToUse ), "%s", zone.c_str() );
     status = parseUserName( groupName, groupName2, groupZone );
     if ( groupZone[0] != '\0' ) {
         rstrcpy( zoneToUse, groupZone, NAME_LEN );
@@ -2125,10 +2108,9 @@ extern "C" {
         }
 
         if ( irods_pam_auth_no_extend ) {
-            strncpy(
-                irods_pam_password_default_time,
-                "28800",
-                NAME_LEN );
+            snprintf( irods_pam_password_default_time,
+                      sizeof( irods_pam_password_default_time ),
+                      "%s", "28800" );
         }
 
         return CODE( status );
@@ -2406,12 +2388,18 @@ extern "C" {
             adminMode = 1;
         }
 
+        bool update_resc_hier = false;
         /* Set up the updateCols and updateVals arrays */
         for ( i = 0, j = 0; strcmp( regParamNames[i], "END" ); i++ ) {
             theVal = getValByKey( _reg_param, regParamNames[i] );
             if ( theVal != NULL ) {
                 updateCols.push_back( colNames[i] );
                 updateVals.push_back( theVal );
+
+                if ( std::string( "resc_hier" ) == colNames[i] ) {
+                    update_resc_hier = true;
+                }
+
                 if ( i == DATA_EXPIRY_TS_IX ) {
                     /* if data_expiry, make sure it's
                                                    in the standard time-stamp
@@ -2443,7 +2431,7 @@ extern "C" {
                 }
                 if ( i == DATA_SIZE_IX ) {
                     doingDataSize = 1; /* flag to check size */
-                    strncpy( dataSizeString, theVal, sizeof( dataSizeString ) );
+                    snprintf( dataSizeString, sizeof( dataSizeString ), "%s", theVal );
                 }
 
                 j++;
@@ -2485,6 +2473,7 @@ extern "C" {
         }
 
         if ( _data_obj_info->dataId <= 0 ) {
+
             status = splitPathByKey( _data_obj_info->objPath,
                                      logicalDirName, MAX_NAME_LEN, logicalFileName, MAX_NAME_LEN, '/' );
 
@@ -2613,11 +2602,24 @@ extern "C" {
          * only one).
          */
         if ( getValByKey( _reg_param, ALL_KW ) == NULL ) {
-            j = numConditions;
-            whereColsAndConds[j] = "data_repl_num=";
-            snprintf( replNum1, MAX_NAME_LEN, "%d", _data_obj_info->replNum );
-            whereValues[j] = replNum1;
-            numConditions++;
+            // use resc_hier instead of replNum as it is
+            // always set, unless resc_hier is to be
+            // updated.  replNum is sometimes 0 in various
+            // error cases
+            if ( update_resc_hier || strlen( _data_obj_info->rescHier ) <= 0 ) {
+                j = numConditions;
+                whereColsAndConds[j] = "data_repl_num=";
+                snprintf( replNum1, MAX_NAME_LEN, "%d", _data_obj_info->replNum );
+                whereValues[j] = replNum1;
+                numConditions++;
+
+            }
+            else {
+                j = numConditions;
+                whereColsAndConds[j] = "resc_hier=";
+                whereValues[j] = _data_obj_info->rescHier;
+                numConditions++;
+            }
         }
 
         mode = 0;
@@ -2987,37 +2989,6 @@ extern "C" {
                 return ERROR( status, "cmlExecuteNoAnswerSql insert access failure" );
             }
         }
-
-        /* we can track the filesystem metadata from the file which
-           this data object was put or registered from */
-        if ( getValByKey( &_data_obj_info->condInput, FILE_UID_KW ) ) {
-            cllBindVars[0] = dataIdNum;
-            cllBindVars[1] = getValByKey( &_data_obj_info->condInput, FILE_UID_KW );
-            cllBindVars[2] = getValByKey( &_data_obj_info->condInput, FILE_GID_KW );
-            cllBindVars[3] = getValByKey( &_data_obj_info->condInput, FILE_OWNER_KW );
-            cllBindVars[4] = getValByKey( &_data_obj_info->condInput, FILE_GROUP_KW );
-            cllBindVars[5] = getValByKey( &_data_obj_info->condInput, FILE_MODE_KW );
-            cllBindVars[6] = getValByKey( &_data_obj_info->condInput, FILE_CTIME_KW );
-            cllBindVars[7] = getValByKey( &_data_obj_info->condInput, FILE_MTIME_KW );
-            cllBindVars[8] = getValByKey( &_data_obj_info->condInput, FILE_SOURCE_PATH_KW );
-            cllBindVars[9] = myTime;
-            cllBindVars[10] = myTime;
-            cllBindVarCount = 11;
-            if ( logSQL ) {
-                rodsLog( LOG_SQL, "chlRegDataObj xSQL 1" );
-            }
-            status = cmlExecuteNoAnswerSql(
-                         "insert into R_OBJT_FILESYSTEM_META (object_id, file_uid, file_gid, file_owner, file_group, file_mode, file_ctime, file_mtime, file_source_path, create_ts, modify_ts) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                         &icss );
-            if ( status != 0 ) {
-                rodsLog( LOG_NOTICE,
-                         "chlRegDataObj cmlExecuteNoAnswerSql insert filesystem_meta failure %d",
-                         status );
-                _rollback( "chlRegDataObj" );
-                return ERROR( status, "cmlExecuteNoAnswerSql insert filesystem_meta failure" );
-            }
-        }
-
 
         status = cmlAudit3( AU_REGISTER_DATA_OBJ, dataIdNum,
                             _comm->clientUser.userName,
@@ -3521,17 +3492,6 @@ extern "C" {
                          "delete from R_OBJT_ACCESS where object_id=? and not exists (select * from R_DATA_MAIN where data_id=?)", &icss );
             if ( status == 0 ) {
                 removeMetaMapAndAVU( dataObjNumber ); /* remove AVU metadata, if any */
-                /* and remove source file OS metadata */
-                cllBindVars[0] = dataObjNumber;
-                cllBindVarCount = 1;
-                if ( logSQL ) {
-                    rodsLog( LOG_SQL, "chlUnregDataObj xSQL 1" );
-                }
-                status = cmlExecuteNoAnswerSql(
-                             "delete from R_OBJT_FILESYSTEM_META where object_id=?", &icss );
-                if ( status < 0 && status != CAT_SUCCESS_BUT_WITH_NO_INFO ) {
-                    rodsLog( LOG_ERROR, "cmlExecuteNoAnswerSql failed in db_unreg_replica_op with status %d", status );
-                }
             }
         }
 
@@ -4147,10 +4107,10 @@ extern "C" {
                     parser.first_child( resc_name );
 
                     std::stringstream msg;
-                    msg << __FUNCTION__;
-                    msg << " - Resource '" << resc_name << "' already has a parent.";
-                    addRErrorMsg( &_comm->rError, 0, msg.str().c_str() );
-                    result = status;
+                    msg << "Encountered an error adding '" << resc_name << "' as a child resource.";
+                    ret = PASSMSG( msg.str(), ret );
+                    addRErrorMsg( &_comm->rError, 0, ret.result().c_str() );
+                    result = ret.code();
                 }
             }
         }
@@ -4869,7 +4829,7 @@ extern "C" {
 
         snprintf( zoneToUse, sizeof( zoneToUse ), "%s", zone.c_str() );
         if ( strlen( _user_info->rodsZone ) > 0 ) {
-            strncpy( zoneToUse, _user_info->rodsZone, MAX_NAME_LEN );
+            snprintf( zoneToUse, sizeof( zoneToUse ), "%s", _user_info->rodsZone );
         }
 
         status = parseUserName( _user_info->userName, userName2, zoneName );
@@ -5424,35 +5384,6 @@ extern "C" {
                      status );
             _rollback( "chlRegColl" );
             return ERROR( status, "cmlExecuteNoAnswerSql(insert access) failure" );
-        }
-
-        /* we can track the filesystem metadata from the directory
-           from which this collection was put or registered from */
-        if ( getValByKey( &_coll_info->condInput, FILE_UID_KW ) != NULL ) {
-            cllBindVars[cllBindVarCount++] = getValByKey( &_coll_info->condInput, FILE_UID_KW );
-            cllBindVars[cllBindVarCount++] = getValByKey( &_coll_info->condInput, FILE_GID_KW );
-            cllBindVars[cllBindVarCount++] = getValByKey( &_coll_info->condInput, FILE_OWNER_KW );
-            cllBindVars[cllBindVarCount++] = getValByKey( &_coll_info->condInput, FILE_GROUP_KW );
-            cllBindVars[cllBindVarCount++] = getValByKey( &_coll_info->condInput, FILE_MODE_KW );
-            cllBindVars[cllBindVarCount++] = getValByKey( &_coll_info->condInput, FILE_CTIME_KW );
-            cllBindVars[cllBindVarCount++] = getValByKey( &_coll_info->condInput, FILE_MTIME_KW );
-            cllBindVars[cllBindVarCount++] = getValByKey( &_coll_info->condInput, FILE_SOURCE_PATH_KW );
-            cllBindVars[cllBindVarCount++] = myTime;
-            cllBindVars[cllBindVarCount++] = myTime;
-            snprintf( tSQL, MAX_SQL_SIZE,
-                      "insert into R_OBJT_FILESYSTEM_META (object_id, file_uid, file_gid, file_owner, file_group, file_mode, file_ctime, file_mtime, file_source_path, create_ts, modify_ts) values (%s, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                      currStr2 );
-            if ( logSQL ) {
-                rodsLog( LOG_SQL, "chlRegColl xSQL 1" );
-            }
-            status = cmlExecuteNoAnswerSql( tSQL, &icss );
-            if ( status != 0 ) {
-                rodsLog( LOG_NOTICE,
-                         "chlRegColl cmlExecuteNoAnswerSql insert filesystem_meta failure %d",
-                         status );
-                _rollback( "chlRegColl" );
-                return ERROR( status, "cmlExecuteNoAnswerSql insert filesystem_meta failure" );
-            }
         }
 
         /* Audit */
@@ -6829,22 +6760,6 @@ extern "C" {
         snprintf( collIdNum, MAX_NAME_LEN, "%lld", iVal );
         removeMetaMapAndAVU( collIdNum );
 
-        /* remove any filesystem metadata entries */
-        cllBindVars[cllBindVarCount++] = collIdNum;
-        if ( logSQL ) {
-            rodsLog( LOG_SQL, "chlDelCollByAdmin xSQL 1" );
-        }
-        status =  cmlExecuteNoAnswerSql(
-                      "delete from R_OBJT_FILESYSTEM_META where object_id=?",
-                      &icss );
-        if ( status && status != CAT_SUCCESS_BUT_WITH_NO_INFO ) {
-            /* error might indicate that this wasn't set
-              which isn't a problem. Fall through. */
-            rodsLog( LOG_NOTICE,
-                     "chlDelCollByAdmin delete filesystem meta failure %d",
-                     status );
-        }
-
         /* Audit (before it's deleted) */
         status = cmlAudit4( AU_DELETE_COLL_BY_ADMIN,
                             "select coll_id from R_COLL_MAIN where coll_name=?",
@@ -8114,7 +8029,7 @@ checkLevel:
         getNowStr( myTime );
 
         auditComment[0] = '\0';
-        strncpy( auditUserName, _user_name, 100 );
+        snprintf( auditUserName, sizeof( auditUserName ), "%s", _user_name );
 
         status = parseUserName( _user_name, userName2, zoneName );
         if ( zoneName[0] == '\0' ) {
@@ -8139,7 +8054,7 @@ checkLevel:
                 rodsLog( LOG_SQL, "chlModUser SQL 2" );
             }
             auditId = AU_MOD_USER_TYPE;
-            strncpy( auditComment, _new_value, 100 );
+            snprintf( auditComment, sizeof( auditComment ), "%s", _new_value );
         }
         if ( strcmp( _option, "zone" ) == 0 ||
                 strcmp( _option, "zone_name" ) == 0 ) {
@@ -8152,8 +8067,8 @@ checkLevel:
                 rodsLog( LOG_SQL, "chlModUser SQL 3" );
             }
             auditId = AU_MOD_USER_ZONE;
-            strncpy( auditComment, _new_value, 100 );
-            strncpy( auditUserName, _user_name, 100 );
+            snprintf( auditComment, sizeof( auditComment ), "%s", _new_value );
+            snprintf( auditUserName, sizeof( auditUserName ), "%s", _user_name );
         }
         if ( strcmp( _option, "addAuth" ) == 0 ) {
             opType = 4;
@@ -8166,7 +8081,7 @@ checkLevel:
                 rodsLog( LOG_SQL, "chlModUser SQL 4" );
             }
             auditId = AU_ADD_USER_AUTH_NAME;
-            strncpy( auditComment, _new_value, 100 );
+            snprintf( auditComment, sizeof( auditComment ), "%s", _new_value );
         }
         if ( strcmp( _option, "rmAuth" ) == 0 ) {
             rstrcpy( tSQL, form6, MAX_SQL_SIZE );
@@ -8177,7 +8092,7 @@ checkLevel:
                 rodsLog( LOG_SQL, "chlModUser SQL 5" );
             }
             auditId = AU_DELETE_USER_AUTH_NAME;
-            strncpy( auditComment, _new_value, 100 );
+            snprintf( auditComment, sizeof( auditComment ), "%s", _new_value );
 
         }
 
@@ -8191,7 +8106,7 @@ checkLevel:
                 rodsLog( LOG_SQL, "chlModUser SQL 6" );
             }
             auditId = AU_MOD_USER_PASSWORD;
-            strncpy( auditComment, "Deleted user iRODS-PAM password (if any)", 100 );
+            snprintf( auditComment, sizeof( auditComment ), "%s", "Deleted user iRODS-PAM password (if any)" );
         }
 
         if ( strcmp( _option, "info" ) == 0 ||
@@ -8206,7 +8121,7 @@ checkLevel:
                 rodsLog( LOG_SQL, "chlModUser SQL 6" );
             }
             auditId = AU_MOD_USER_INFO;
-            strncpy( auditComment, _new_value, 100 );
+            snprintf( auditComment, sizeof( auditComment ), "%s", _new_value );
         }
         if ( strcmp( _option, "comment" ) == 0 ||
                 strcmp( _option, "r_comment" ) == 0 ) {
@@ -8220,7 +8135,7 @@ checkLevel:
                 rodsLog( LOG_SQL, "chlModUser SQL 7" );
             }
             auditId = AU_MOD_USER_COMMENT;
-            strncpy( auditComment, _new_value, 100 );
+            snprintf( auditComment, sizeof( auditComment ), "%s", _new_value );
         }
         if ( strcmp( _option, "password" ) == 0 ) {
             int i;
@@ -9525,7 +9440,7 @@ checkLevel:
                              userTypeTokenName, MAX_NAME_LEN, bindVars, &icss );
             }
             if ( status == 0 ) {
-                strncpy( lastValidUserType, _user_info->userType, MAX_NAME_LEN );
+                snprintf( lastValidUserType, sizeof( lastValidUserType ), "%s", _user_info->userType );
             }
             else {
                 snprintf( errMsg, 100, "user_type '%s' is not valid",
@@ -11271,8 +11186,7 @@ checkLevel:
         char myTime[50];
         rodsLong_t iVal;
 
-        strncpy( myAccessStr, _access_level + strlen( MOD_RESC_PREFIX ), LONG_NAME_LEN );
-        myAccessStr[ LONG_NAME_LEN - 1 ] = '\0'; // JMC cppcheck - dangerous use of strncpy
+        snprintf( myAccessStr, sizeof( myAccessStr ), "%s", _access_level + strlen( MOD_RESC_PREFIX ) );
 
         if ( strcmp( myAccessStr, AP_NULL ) == 0 ) {
             myAccessLev = ACCESS_NULL;
@@ -12690,7 +12604,7 @@ checkLevel:
             for ( i = ocLen; i > 0; i-- ) {
                 if ( oldCollName[i] == '/' ) {
                     OK = 1;
-                    strncpy( endCollName, ( char* )&oldCollName[i + 1], MAX_NAME_LEN );
+                    snprintf( endCollName, sizeof( endCollName ), "%s", ( char* )&oldCollName[i + 1] );
                     break;
                 }
             }
@@ -12729,7 +12643,7 @@ checkLevel:
 
             /* check that no subcoll exists in the target collection, with
                the name of the object */
-            strncpy( newCollName, targetCollName, MAX_NAME_LEN );
+            snprintf( newCollName, sizeof( newCollName ), "%s", targetCollName );
             strncat( newCollName, PATH_SEPARATOR, MAX_NAME_LEN );
             strncat( newCollName, endCollName, MAX_NAME_LEN );
 
@@ -13658,7 +13572,7 @@ checkLevel:
 
         status = parseUserName( _name, userName, userZone );
         if ( userZone[0] == '\0' ) {
-            strncpy( userZone, zone.c_str(), NAME_LEN );
+            snprintf( userZone, sizeof( userZone ), "%s", zone.c_str() );
         }
 
         if ( itype == 1 ) {
@@ -15600,10 +15514,10 @@ checkLevel:
             snprintf( objIdStr, NAME_LEN, "%lld", objId );
             snprintf( userIdStr, NAME_LEN, "%lld", userId );
             if ( strncmp( _arg3, "write", 5 ) == 0 ) {
-                strncpy( ticketType, "write", sizeof( ticketType ) );
+                snprintf( ticketType, sizeof( ticketType ), "%s", "write" );
             }
             else {
-                strncpy( ticketType, "read", sizeof( ticketType ) );
+                snprintf( ticketType, sizeof( ticketType ), "%s", "read" );
             }
             getNowStr( myTime );
             i = 0;
@@ -16416,22 +16330,22 @@ checkLevel:
     //
     irods::error db_start_operation( irods::plugin_property_map& _props ) {
 #ifdef MY_ICAT
-        char cml_res[ MAX_NAME_LEN ];
-        char sql[] = { "select name from mysql.func" };
+        char cml_res[ 100 ];
+        const char sql[] = "select PREG_REPLACE('/failed/i', 'succeeded', 'Call to PREG_REPLACE() failed.')";
         std::vector<std::string> bindVars;
         int status = cmlGetStringValueFromSql( sql, cml_res, sizeof( cml_res ), bindVars, &icss );
-        if ( status < 0 && status != CAT_NO_ROWS_FOUND ) {
-            return ERROR( status, "failed to call sql to determine UDF" );
+        if ( status < 0 ) {
+            return ERROR( status, "Failed to call PREG_REPLACE(). See section \"Installing lib_mysqludf_preg\" of iRODS Manual." );
         }
 
-        rodsLog( LOG_DEBUG, "db_start_operation :: results [%s]", cml_res );
-        std::string results( cml_res );
-        if ( std::string::npos == results.find( "preg_" ) ) {
-            std::string msg;
-            msg += "PREG User Defined Function not found for mysql database";
-            rodsLog( LOG_ERROR, msg.c_str() );
-            return ERROR( PLUGIN_ERROR, msg );
+        if ( strcmp( "Call to PREG_REPLACE() succeeded.", cml_res ) ) {
+            std::stringstream ss;
+            ss << "Call to PREG_REPLACE() returned incorrect result: ["
+               << cml_res
+               << "].";
+            return ERROR( PLUGIN_ERROR, ss.str().c_str() );
         }
+        rodsLog( LOG_DEBUG, "db_start_operation :: Call to PREG_REPLACE() succeeded" );
 #endif
 
         return SUCCESS();

@@ -647,6 +647,7 @@ printCollAcl( rcComm_t *conn, char *collName ) {
 
         }
         printf( "\n" );
+        freeGenQueryOut( &genQueryOut );
         return status;
     }
 
@@ -654,23 +655,27 @@ printCollAcl( rcComm_t *conn, char *collName ) {
 
     if ( status < 0 ) {
         printf( "\n" );
+        freeGenQueryOut( &genQueryOut );
         return status;
     }
 
     if ( ( userName = getSqlResultByInx( genQueryOut, COL_COLL_USER_NAME ) ) == NULL ) {
         rodsLog( LOG_ERROR,
                  "printCollAcl: getSqlResultByInx for COL_COLL_USER_NAME failed" );
+        freeGenQueryOut( &genQueryOut );
         return UNMATCHED_KEY_OR_INDEX;
     }
     if ( ( userZone = getSqlResultByInx( genQueryOut, COL_COLL_USER_ZONE ) ) == NULL ) {
         rodsLog( LOG_ERROR,
                  "printCollAcl: getSqlResultByInx for COL_COLL_USER_ZONE failed" );
+        freeGenQueryOut( &genQueryOut );
         return UNMATCHED_KEY_OR_INDEX;
     }
 
     if ( ( dataAccess = getSqlResultByInx( genQueryOut, COL_COLL_ACCESS_NAME ) ) == NULL ) {
         rodsLog( LOG_ERROR,
                  "printCollAcl: getSqlResultByInx for COL_COLL_ACCESS_NAME failed" );
+        freeGenQueryOut( &genQueryOut );
         return UNMATCHED_KEY_OR_INDEX;
     }
 
@@ -698,12 +703,14 @@ printCollInheritance( rcComm_t *conn, char *collName ) {
     status = queryCollInheritance( conn, collName, &genQueryOut );
 
     if ( status < 0 ) {
+        freeGenQueryOut( &genQueryOut );
         return status;
     }
 
     if ( ( inheritResult = getSqlResultByInx( genQueryOut, COL_COLL_INHERITANCE ) ) == NULL ) {
         rodsLog( LOG_ERROR,
                  "printCollInheritance: getSqlResultByInx for COL_COLL_INHERITANCE failed" );
+        freeGenQueryOut( &genQueryOut );
         return UNMATCHED_KEY_OR_INDEX;
     }
 
@@ -817,14 +824,9 @@ lsSubfilesInBundle( rcComm_t *conn, char *srcPath ) {
                      collectionStr, dataNameStr, dataSizeStr );
         }
 
-        if ( genQueryOut != NULL ) {
-            continueInx = genQueryInp.continueInx =
-                              genQueryOut->continueInx;
-            freeGenQueryOut( &genQueryOut );
-        }
-        else {
-            continueInx = 0;
-        }
+        continueInx = genQueryInp.continueInx =
+                          genQueryOut->continueInx;
+        freeGenQueryOut( &genQueryOut );
     }
     clearGenQueryInp( &genQueryInp );
     return status;

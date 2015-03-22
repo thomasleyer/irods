@@ -20,23 +20,6 @@
 #include "irods_resource_redirect.hpp"
 
 int
-rsDataObjCopy250( rsComm_t *rsComm, dataObjCopyInp_t *dataObjCopyInp,
-                  transStat_t **transStat ) {
-    int status;
-    transferStat_t *transferStat = NULL;
-
-    status = rsDataObjCopy( rsComm, dataObjCopyInp, &transferStat );
-
-    if ( transStat != NULL && status >= 0 && transferStat != NULL ) {
-        *transStat = ( transStat_t * ) malloc( sizeof( transStat_t ) );
-        ( *transStat )->numThreads = transferStat->numThreads;
-        ( *transStat )->bytesWritten = transferStat->bytesWritten;
-        free( transferStat );
-    }
-    return status;
-}
-
-int
 rsDataObjCopy( rsComm_t *rsComm, dataObjCopyInp_t *dataObjCopyInp,
                transferStat_t **transStat ) {
     dataObjInp_t *srcDataObjInp, *destDataObjInp;
@@ -104,9 +87,6 @@ rsDataObjCopy( rsComm_t *rsComm, dataObjCopyInp_t *dataObjCopyInp,
         /* dataSingleBuf */
         addKeyVal( &destDataObjInp->condInput, NO_OPEN_FLAG_KW, "" );
     }
-    /* copy file metadata if the source object has it */
-    copyFilesystemMetadata( &( L1desc[srcL1descInx].dataObjInfo->condInput ),
-                            &destDataObjInp->condInput );
 
     destL1descInx = rsDataObjCreate( rsComm, destDataObjInp );
     if ( destL1descInx == CAT_UNKNOWN_COLLECTION ) {

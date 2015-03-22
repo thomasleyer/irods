@@ -543,7 +543,7 @@ int getZoneNameFromHint(
     if ( sep[0] == hint[0] ) {
         std::string::size_type pos = hint.find( sep, 1 );
         if ( std::string::npos != pos ) {
-            hint = hint.substr( 1, pos-1 );
+            hint = hint.substr( 1, pos - 1 );
 
         }
         else {
@@ -817,12 +817,12 @@ addKeyVal( keyValPair_t *condInput, const char *keyWord, const char *value ) {
             free( condInput->keyWord[i] );
             free( condInput->value[i] );
             condInput->keyWord[i] = strdup( keyWord );
-            condInput->value[i] = strdup( value );
+            condInput->value[i] = value ? strdup( value ) : NULL;
             return 0;
         }
         else if ( strcmp( keyWord, condInput->keyWord[i] ) == 0 ) {
             free( condInput->value[i] );
-            condInput->value[i] = strdup( value );
+            condInput->value[i] = value ? strdup( value ) : NULL;
             return 0;
         }
     }
@@ -837,7 +837,7 @@ addKeyVal( keyValPair_t *condInput, const char *keyWord, const char *value ) {
     }
 
     condInput->keyWord[condInput->len] = strdup( keyWord );
-    condInput->value[condInput->len] = strdup( value );
+    condInput->value[condInput->len] = value ? strdup( value ) : NULL;
     condInput->len++;
 
     return 0;
@@ -3188,6 +3188,7 @@ fillGenQueryInpFromStrCond( char * str, genQueryInp_t * genQueryInp ) {
         *u = '\0';
         trimWS( t );
         if ( ( p = strchr( t, ' ' ) ) == NULL ) {
+            free( s );
             return INPUT_ARG_NOT_WELL_FORMED_ERR;
         }
         *p = '\0';
@@ -3201,6 +3202,7 @@ fillGenQueryInpFromStrCond( char * str, genQueryInp_t * genQueryInp ) {
     }
     trimWS( t );
     if ( ( p = strchr( t, ' ' ) ) == NULL ) {
+        free( s );
         return INPUT_ARG_NOT_WELL_FORMED_ERR;
     }
     *p = '\0';
@@ -3478,8 +3480,10 @@ parseCachedStructFileStr( char * collInfo2, specColl_t * specColl ) {
     std::string first_resc;
     parse.first_resc( first_resc );
 
-    strncpy( specColl->resource, first_resc.c_str(), NAME_LEN );
-    strncpy( specColl->rescHier, tmpPtr1, len );
+    snprintf( specColl->resource, sizeof( specColl->resource ),
+              "%s", first_resc.c_str() );
+    snprintf( specColl->rescHier, sizeof( specColl->rescHier ),
+              "%s", tmpPtr1 );
     tmpPtr2 += 3;
 
     specColl->cacheDirty = atoi( tmpPtr2 );
@@ -4108,7 +4112,7 @@ fillAttriArrayOfBulkOprInp( char * objPath, int dataMode, char * inpChksum,
 }
 
 int
-getAttriInAttriArray( char * inpObjPath, genQueryOut_t * attriArray,
+getAttriInAttriArray( const char * inpObjPath, genQueryOut_t * attriArray,
                       int * outDataMode, char **outChksum ) {
     int i;
     int startInx;
@@ -4376,7 +4380,7 @@ getRandomArray( int **randomArray, int size ) {
 }
 
 int
-isPathSymlink( rodsArguments_t * rodsArgs, char * myPath ) {
+isPathSymlink( rodsArguments_t * rodsArgs, const char * myPath ) {
     path p( myPath );
     if ( rodsArgs != NULL && rodsArgs->link != True ) {
         return 0;
@@ -4441,15 +4445,8 @@ char *trimSpaces( char * str ) {
 
 }
 
-int startsWith( char * str, char * prefix ) {
-    int i = 0;
-    while ( str[i] != '\0' && prefix[i] != '\0' ) {
-        if ( str[i] != prefix[i] ) {
-            return 0;
-        }
-        i++;
-    }
-    return prefix[i] == '\0';
+int startsWith( const char * str, const char * prefix ) {
+    return str == strstr( str, prefix );
 }
 
 int convertListToMultiString( char * strInput, int input ) {
@@ -4634,7 +4631,7 @@ getPathStMode( const char* p ) {
 
 
 int
-hasSymlinkInDir( char * mydir ) {
+hasSymlinkInDir( const char * mydir ) {
     int status;
     char subfilePath[MAX_NAME_LEN];
     DIR *dirPtr;
@@ -4682,9 +4679,8 @@ hasSymlinkInDir( char * mydir ) {
 }
 
 int
-hasSymlinkInPartialPath( char * myPath, int pos ) {
-    char *nextPtr;
-    char *curPtr = myPath + pos;
+hasSymlinkInPartialPath( const char * myPath, int pos ) {
+    const char *curPtr = myPath + pos;
     struct stat statbuf;
     int status;
 
@@ -4701,30 +4697,27 @@ hasSymlinkInPartialPath( char * myPath, int pos ) {
         return 1;
     }
 
-    while ( ( nextPtr = strchr( curPtr, '/' ) ) != NULL ) {
-        *nextPtr = '\0';
-        status = lstat( myPath, &statbuf );
+    while ( ( curPtr = strchr( curPtr, '/' ) ) != NULL ) {
+        std::string sub_path( myPath, curPtr - myPath );
+        status = lstat( sub_path.c_str(), &statbuf );
         if ( status != 0 ) {
             rodsLog( LOG_ERROR,
                      "hasSymlinkInPartialPath: stat error for %s, errno = %d",
-                     myPath, errno );
-            *nextPtr = '/';
+                     sub_path.c_str(), errno );
             return 0;
         }
         if ( ( statbuf.st_mode & S_IFLNK ) == S_IFLNK ) {
             rodsLog( LOG_ERROR,
-                     "hasSymlinkInPartialPath: %s is a symlink", myPath );
-            *nextPtr = '/';
+                     "hasSymlinkInPartialPath: %s is a symlink", sub_path.c_str() );
             return 1;
         }
-        *nextPtr = '/';
-        curPtr = nextPtr + 1;
+        curPtr++;
     }
     return 0;
 }
 
 int
-hasSymlinkInPath( char * myPath ) {
+hasSymlinkInPath( const char * myPath ) {
     static char lastCheckedPath[MAX_NAME_LEN];
     int status, i;
     int lastSlashPos = 0;
